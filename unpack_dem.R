@@ -1,3 +1,6 @@
 library(raster)
+devtools::install_github("tylermorganwall/rayshader")
 library(rayshader)
 library(tidyverse)
+library(rgdal)
+library(sf)
