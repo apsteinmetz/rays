@@ -1,5 +1,5 @@
 library(raster)
-#devtools::install_github("tylermorganwall/rayshader")
+# devtools::install_github("tylermorganwall/rayshader")
 library(rayshader)
 library(tidyverse)
 library(rgdal)
@@ -7,9 +7,6 @@ library(sf)
 library(leaflet)
 source("utilities_ray.r")
 
-data = raster::raster("data/sawatch_north.img")
-sawatch_north <- matrix(raster::extract(data,raster::extent(data),buffer=10000),
-                        nrow=ncol(data),ncol=nrow(data))
 latlon_alder<-list(lat=38.374304,long=-106.1165398)
 latlon_salida<-list(lat=38.5410578,long=-105.9922354)
 lat_width <- 0.25
@@ -50,7 +47,7 @@ elev_matrix <- matrix(
 # calculate rayshader layers
 ambmat <- ambient_shade(elev_matrix, zscale = 30)
 raymat <- ray_shade(elev_matrix, zscale = 30, lambert = TRUE)
-watermap <- detect_water(elev_matrix)
+# watermap <- detect_water(elev_matrix)
 
 # plot 2D# fetch overlay image
 overlay_file <- "img/salida_map.png"
@@ -61,7 +58,7 @@ overlay_img <- png::readPNG(overlay_file)
 
 elev_matrix %>%
   sphere_shade(texture = "imhof4") %>%
-  add_water(watermap, color = "imhof4") %>%
+  # add_water(watermap, color = "imhof4") %>%
   add_shadow(raymat, max_darken = 0.5) %>%
   add_shadow(ambmat, max_darken = 0.5) %>%
   add_overlay(overlay_img, alphalayer = 0.5) %>%
@@ -71,7 +68,7 @@ zscale <- 50
 rgl::clear3d()
 elev_matrix %>% 
   sphere_shade(texture = "imhof4") %>% 
-  add_water(watermap, color = "imhof4") %>%
+  # add_water(watermap, color = "imhof4") %>%
   add_overlay(overlay_img, alphalayer = 0.5) %>%
   add_shadow(raymat, max_darken = 0.5) %>%
   add_shadow(ambmat, max_darken = 0.5) %>%
