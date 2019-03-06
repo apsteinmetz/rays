@@ -85,5 +85,6 @@ elev_matrix %>%
   plot_3d(elev_matrix, zscale = zscale, windowsize = c(1200, 1000),
           water = FALSE, soliddepth = "auto", wateralpha = 0,
           theta = 25, phi = 30, zoom = 0.5, fov = 60)
+render_label(elev_matrix,"text",x=300,y=200,z=1000,freetype = FALSE)
 render_snapshot()
 

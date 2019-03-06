@@ -177,3 +177,35 @@ get_arcgis_map_image <- function(bbox, map_type = "World_Street_Map", file = NUL
   }
   invisible(file)
 }
+
+
+#' Convert lat,long to x,y in plane of a given major dimension
+#'
+#' @param point (list of 1 point with long/lat values)
+#' @param bbox bounding box coordinates (list of 2 points with long/lat values)
+#' @param major_dim major image dimension, in pixels. 
+#'                  Default is 400 (meaning larger dimension will be 400 pixels)
+#'
+#' @return list with items "x" and "y" (integers corresponding to matrix coordinates)
+#'
+#' @examples
+#' point = list(long = -122.4, lat = 37.75)
+#' bbox <- list(
+#'   p1 = list(long = -122.522, lat = 37.707),
+#'   p2 = list(long = -122.354, lat = 37.84)
+#' )
+#' image_size <- get_xy_pos(point,bbox,600)
+#' 
+#' @author Art Steinmetz twitter:adababbage
+#' 
+get_xy_pos <- function(point, bbox, major_dim = 400) {
+  # calculate aspect ration (width/height) from lat/long bounding box
+  aspect_ratio <- abs((bbox$p1$long - bbox$p2$long) / (bbox$p1$lat - bbox$p2$lat))
+  # define dimensions
+  img_width <- ifelse(aspect_ratio > 1, major_dim, major_dim*aspect_ratio) %>% round()
+  img_height <- ifelse(aspect_ratio < 1, major_dim, major_dim/aspect_ratio) %>% round()
+  x = (bbox$p1$long-point$long)/(bbox$p1$long - bbox$p2$long) * img_width
+  y = (bbox$p1$lat-point$lat)/(bbox$p1$lat - bbox$p2$lat) * img_height
+  return(list(x=round(x),y=round(y)))
+}
+
