@@ -11,6 +11,8 @@ latlon_alder<-list(lat=38.374304,long=-106.1165398)
 latlon_salida<-list(lat=38.53,long=-105.9922354)
 lat_width <- 0.03
 lon_width <- 0.05
+major_dim <- 1200
+latlon_house <- list(lat=38.513622,long=-106.0157)
 
 bbox <- list(
   p1 = list(long=latlon_salida$long-lon_width, lat = latlon_salida$lat+lat_width),
@@ -32,6 +34,12 @@ leaflet() %>%
 
 
 image_size <- define_image_size(bbox, major_dim = 1200)
+
+house_pos <- find_image_coordinates(latlon_house$long,
+                                    latlon_house$lat,
+                                    bbox = bbox,
+                                    image_width=image_size$width,
+                                    image_height=image_size$height)
 
 elev_file <- file.path("data", "salida.tif")
 get_usgs_elevation_data(bbox, size = image_size$size, file = elev_file,
@@ -85,6 +93,8 @@ elev_matrix %>%
   plot_3d(elev_matrix, zscale = zscale, windowsize = c(1200, 1000),
           water = FALSE, soliddepth = "auto", wateralpha = 0,
           theta = 25, phi = 30, zoom = 0.5, fov = 60)
-render_label(elev_matrix,"text",x=300,y=200,z=1000,freetype = FALSE)
+
+render_label(elev_matrix,text="text",x=house_pos$x,y=house_pos$y,z=4000,zscale=10,relativez=FALSE,freetype = FALSE)
+#render_label(elev_matrix,x=50,y=130, z=2000,zscale=50,text = "Monterey Canyon",relativez=FALSE,freetype = FALSE)
 render_snapshot()
 

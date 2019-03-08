@@ -1,5 +1,22 @@
 #rayshader utilities from Will Bishop @wcmbiship
 
+#' Translate the given long/lat coordinates into an image position (x, y).
+#'
+#' @param long longitude value
+#' @param lat latitude value
+#' @param bbox bounding box coordinates (list of 2 points with long/lat values)
+#' @param image_width image width, in pixels
+#' @param image_height image height, in pixels
+#'
+#' @return named list with elements "x" and "y" defining an image position
+#'
+find_image_coordinates <- function(long, lat, bbox, image_width, image_height) {
+  x_img <- round(image_width * (long - min(bbox$p1$long, bbox$p2$long)) / abs(bbox$p1$long - bbox$p2$long))
+  y_img <- round(image_height * (lat - min(bbox$p1$lat, bbox$p2$lat)) / abs(bbox$p1$lat - bbox$p2$lat))
+  list(x = x_img, y = y_img)
+}
+
+
 #' Define image size variables from the given bounding box coordinates.
 #'
 #' @param bbox bounding box coordinates (list of 2 points with long/lat values)
@@ -204,8 +221,8 @@ get_xy_pos <- function(point, bbox, major_dim = 400) {
   # define dimensions
   img_width <- ifelse(aspect_ratio > 1, major_dim, major_dim*aspect_ratio) %>% round()
   img_height <- ifelse(aspect_ratio < 1, major_dim, major_dim/aspect_ratio) %>% round()
-  x = (bbox$p1$long-point$long)/(bbox$p1$long - bbox$p2$long) * img_width
-  y = (bbox$p1$lat-point$lat)/(bbox$p1$lat - bbox$p2$lat) * img_height
+  x = abs((bbox$p2$long-point$long)/(bbox$p1$long - bbox$p2$long)) * img_width
+  y = abs((bbox$p2$lat-point$lat)/(bbox$p1$lat - bbox$p2$lat)) * img_height
   return(list(x=round(x),y=round(y)))
 }
 
