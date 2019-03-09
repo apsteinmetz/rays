@@ -1,3 +1,22 @@
+# Crop raster image
+crop_img <- function(elev_img,bbox){
+  new_extent <- unlist(bbox) %>% matrix(nrow=2,ncol=2) %>% extent()
+  elev_img <- elev_img %>% crop(new_extent)
+  return(elev_img)
+}
+
+# Downscale elevation matrix
+downscale_elev <- function(elev_matrix,target_image_size){
+  spacing_w = dim(elev_matrix)[1] / target_image_size$width
+  spacing_h = dim(elev_matrix)[2] / target_image_size$height
+  # downsample but truncate items if rounding returns more points than target
+  # this breaks if rounding dimensions LESS than target_image_size
+  sample_w <- round(seq(1,dim(elev_matrix)[1], by = spacing_w))
+  sample_h <- round(seq(1,dim(elev_matrix)[2], by = spacing_h))
+  return(elev_matrix[sample_w,sample_h])
+  
+}
+
 #rayshader utilities from Will Bishop @wcmbiship
 
 #' Translate the given long/lat coordinates into an image position (x, y).
@@ -193,36 +212,5 @@ get_arcgis_map_image <- function(bbox, map_type = "World_Street_Map", file = NUL
     message(res)
   }
   invisible(file)
-}
-
-
-#' Convert lat,long to x,y in plane of a given major dimension
-#'
-#' @param point (list of 1 point with long/lat values)
-#' @param bbox bounding box coordinates (list of 2 points with long/lat values)
-#' @param major_dim major image dimension, in pixels. 
-#'                  Default is 400 (meaning larger dimension will be 400 pixels)
-#'
-#' @return list with items "x" and "y" (integers corresponding to matrix coordinates)
-#'
-#' @examples
-#' point = list(long = -122.4, lat = 37.75)
-#' bbox <- list(
-#'   p1 = list(long = -122.522, lat = 37.707),
-#'   p2 = list(long = -122.354, lat = 37.84)
-#' )
-#' image_size <- get_xy_pos(point,bbox,600)
-#' 
-#' @author Art Steinmetz twitter:adababbage
-#' 
-get_xy_pos <- function(point, bbox, major_dim = 400) {
-  # calculate aspect ration (width/height) from lat/long bounding box
-  aspect_ratio <- abs((bbox$p1$long - bbox$p2$long) / (bbox$p1$lat - bbox$p2$lat))
-  # define dimensions
-  img_width <- ifelse(aspect_ratio > 1, major_dim, major_dim*aspect_ratio) %>% round()
-  img_height <- ifelse(aspect_ratio < 1, major_dim, major_dim/aspect_ratio) %>% round()
-  x = abs((bbox$p2$long-point$long)/(bbox$p1$long - bbox$p2$long)) * img_width
-  y = abs((bbox$p2$lat-point$lat)/(bbox$p1$lat - bbox$p2$lat)) * img_height
-  return(list(x=round(x),y=round(y)))
 }
 
