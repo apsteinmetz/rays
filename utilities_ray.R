@@ -1,3 +1,28 @@
+M <- img[ , ]
+M <- ifelse(M < 0.5, 0, 1)
+image(M, col = c(1, 0))
+
+# inpsired by flood fill
+# https://en.wikipedia.org/wiki/Flood_fill
+unfloodfill <- function(row, col,max_depth,depth) {
+    if (max_depth == depth) return()
+    if (M[row, col] > 0) return()
+    M[row, col] <<- depth
+    unfloodfill(row - 1, col    , tcol, rcol) # south
+    unfloodfill(row + 1, col    , tcol, rcol) # north
+    unfloodfill(row    , col - 1, tcol, rcol) # west
+    unfloodfill(row    , col + 1, tcol, rcol) # east
+    return("filling completed")
+  }
+  
+  options(expressions = 10000)
+  startrow <- 100; startcol <- 100
+  floodfill(startrow, startcol, 0, 2)
+  
+  image(M, col = c(1, 0, 2))
+  
+}
+
 # Crop raster image
 crop_img <- function(elev_img,bbox){
   new_extent <- unlist(bbox) %>% matrix(nrow=2,ncol=2) %>% extent()
