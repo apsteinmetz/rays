@@ -8,14 +8,14 @@ library(leaflet)
 source("utilities_ray.r")
 
 major_dim <- 1440
-zscale = 30
+zscale = 50
 latlon_bc <- list(lat=50.4132014,long=-125.5049464)
 latlon_cr <- list(lat=50.0359846,long=-125.2600229)
 # texture from http://matthewkling.github.io/media/rayshader/
 texture <- create_texture("darkolivegreen", "darkgreen",
                           "royalblue3", "khaki", "khaki")
-lat_width <- 0.15
-lon_width <- 0.15
+lat_width <- 0.25
+lon_width <- 0.35
 
 bbox <- list(
   p1 = list(long=latlon_bc$long-lon_width, lat = latlon_bc$lat+lat_width),
@@ -39,15 +39,68 @@ leaflet() %>%
 
 # load elevation data
 elev_file <- file.path("data", "cdem_dem_092K.tif")
-elev_img <- raster::raster(elev_file) %>% crop_img(bbox)
+depth_file <- file.path("data", "bathymetric_bc.tif")
+elev_img <- raster::raster(elev_file)  %>% crop_img(bbox)
 elev_matrix <- matrix(
   raster::extract(elev_img, raster::extent(elev_img), buffer = 1000), 
   nrow = ncol(elev_img), ncol = nrow(elev_img)
 )
 
+depth_img <- raster::raster(depth_file)  %>% crop_img(bbox)
+depth_matrix <- matrix(
+  raster::extract(depth_img, raster::extent(depth_img), buffer = 1000), 
+  nrow = ncol(depth_img), ncol = nrow(depth_img)
+)
 #if elev_matrix is less than major_dim, reduce major_dim
-major_dim <- dim(elev_matrix) %>% max() %>% min(major_dim)
+major_dim <- dim(depth_matrix) %>% max() %>% min(major_dim)
 image_size <- define_image_size(bbox, major_dim = major_dim)
+# depth matrix will be smaller. downsize elev_matrix
+elev_matrix <- elev_matrix %>% downscale_elev(image_size)
+
+# join elev and depth
+elev_depth <- tibble(elev=as.vector(elev_matrix),depth=as.vector(depth_matrix))
+
+contradictions <-elev_depth %>% 
+  filter(elev > 0 & depth < 0) 
+
+# ----------------------------------------------------------------------
+
+  #look at data
+elev_depth %>% 
+  # filter(elev > 0 & depth < 0) %>% 
+  ggplot(aes(depth)) + 
+  geom_histogram(fill="blue",alpha=0.5) + 
+  geom_histogram(aes(elev),fill="darkgreen",alpha=0.5) + 
+  labs(title = "Combined Elevation and Bathymetric Data",
+       subtitle = "Contradictions! Coordinates with elev > 0 AND depth < 0",
+       x = "Meters Above Sea Level",
+       y = "Point Count",
+       caption = "Source: open.canada.ca")
+
+elev_depth %>% 
+  # filter(elev > 0 & depth < 0) %>% 
+  filter(!is.na(depth)) %>% 
+  ggplot(aes(depth,elev)) + 
+  geom_point() + 
+  geom_point(data=contradictions,color="red") + 
+  labs(subtitle = "Combined Elevation and Bathymetric Data",
+       title = "Contradictions! (Coordinates with elev > 0 AND depth < 0 in Red)",
+       x = "Depth",
+       y = "Elevation",
+       caption = "Source: open.canada.ca")
+
+# -------------------------------------------------------------
+
+# combine into one conforming matrix
+# replace all NAs and values greater than zero in depth matrix with elev data and use that column
+elev_depth_matrix <- elev_depth %>% 
+  mutate(depth = ifelse(is.na(depth),elev,depth)) %>% 
+  mutate(depth = ifelse(elev > 0, elev, depth)) %>% 
+  # fake missing bathymetry by setting zero elevation to depth of minus 3 meters
+  mutate(depth = ifelse(depth == 0, -3 , depth)) %>% 
+  pull(depth) %>% 
+  matrix(nrow = image_size$width,ncol = image_size$height)
+
 # ---------------------------------------------------------------------
 
 
@@ -64,18 +117,14 @@ cr_pos <- find_image_coordinates(latlon_cr$long,
                                     image_height=image_size$height)
 
 overlay_file <- "img/bc_map.png"
-#overlay_file2 <- "img/salida_map2.png"
-
-
-
 
 # -------------------------------------------------------------
 # Download external data
 
 # plot 2D# fetch overlay image
-get_arcgis_map_image(bbox, map_type = "World_Imagery", file = overlay_file,
-                     width = image_size$width, height = image_size$height, 
-                     sr_bbox = 4326)
+# get_arcgis_map_image(bbox, map_type = "World_Imagery", file = overlay_file,
+#                      width = image_size$width, height = image_size$height, 
+#                      sr_bbox = 4326)
 
 # plot 2D# fetch overlay image
 #get_arcgis_map_image(bbox, map_type = "World_Street_Map", file = overlay_file2,
@@ -89,38 +138,45 @@ get_arcgis_map_image(bbox, map_type = "World_Imagery", file = overlay_file,
 #overlay_img2 <- png::readPNG(overlay_file2)
 overlay_img <- png::readPNG(overlay_file)
 
-# elev_matrix <- elev_matrix %>% downscale_elev(image_size)
-
+# chose matrix to use
+elev_matrix_2 <- elev_depth_matrix
 # calculate rayshader layers
-ambmat <- ambient_shade(elev_matrix, zscale = zscale)
-raymat <- ray_shade(elev_matrix, anglebreaks=seq(1,10,1),zscale = zscale, lambert = TRUE)
-watermap <- detect_water(elev_matrix,min_area = 2000)
+ambmat <- ambient_shade(elev_matrix_2, zscale = zscale)
+raymat <- ray_shade(elev_matrix_2, anglebreaks=seq(1,10,1),zscale = zscale, lambert = TRUE)
+# watermap <- detect_water(elev_matrix_2,min_area = 2000)
 
 
-elev_matrix %>%
-  sphere_shade(texture = texture, zscale = zscale) %>%
-  add_water(watermap, color = "imhof4") %>%
-  add_shadow(raymat, max_darken = 0.4) %>%
-  add_shadow(ambmat, max_darken = 0.5) %>%
-  add_overlay(overlay_img, alphalayer = 0.7) %>%
-  #add_overlay(overlay_img2, alphalayer = 0.2) %>%
-  plot_map()
+# elev_matrix_2 %>%
+#   sphere_shade(texture = texture, zscale = zscale) %>%
+#   add_water(watermap, color = "imhof4") %>%
+#   add_shadow(raymat, max_darken = 0.4) %>%
+#   add_shadow(ambmat, max_darken = 0.5) %>%
+#   #add_overlay(overlay_img, alphalayer = 0.7) %>%
+#   #add_overlay(overlay_img2, alphalayer = 0.2) %>%
+#   plot_map()
 
 
 rgl::clear3d()
-elev_matrix %>% 
-  sphere_shade(texture = "imhof4") %>% 
-  add_water(watermap, color = "imhof4") %>%
-  add_overlay(overlay_img, alphalayer = 0.7) %>%
+elev_matrix_2 %>% 
+  sphere_shade(texture = "imhof1") %>% 
+  # add_water(watermap, color = "imhof4") %>%
+  # add_overlay(overlay_img, alphalayer = 0.7) %>%
   # add_overlay(overlay_img2, alphalayer = 0.4) %>%
   add_shadow(raymat, max_darken = 0.5) %>%
   add_shadow(ambmat, max_darken = 0.5) %>%
-  plot_3d(elev_matrix, zscale = zscale, windowsize = c(1200, 1000),
-          water = TRUE, soliddepth = "auto", wateralpha = 0,
-          theta = 25, phi = 30, zoom = 0.5, fov = 60)
+  plot_3d(elev_matrix_2, zscale = zscale, windowsize = c(1200, 1000),
+          theta = 25, phi = 30, zoom = 0.5, fov = 0, 
+          soliddepth = "auto", 
+          water = TRUE, 
+          wateralpha = 0.5,
+          waterdepth = 0,
+          watercolor = "lightblue",
+          waterlinecolor = "white",
+          waterlinealpha = 0.0
+          )
 
-render_label(elev_matrix,text="Blind Channel",x=bc_pos$x,y=bc_pos$y,z=5000,zscale=zscale,relativez=FALSE,freetype = FALSE)
-#render_label(elev_matrix,text="Campbell River",x=cr_pos$x,y=cr_pos$y,z=5000,zscale=zscale,relativez=FALSE,freetype = FALSE)
+# render_label(elev_matrix,text="Blind Channel",x=bc_pos$x,y=bc_pos$y,z=5000,zscale=zscale,relativez=FALSE,freetype = FALSE)
+# render_label(elev_matrix,text="Campbell River",x=cr_pos$x,y=cr_pos$y,z=5000,zscale=zscale,relativez=FALSE,freetype = FALSE)
 render_snapshot()
 #render_camera(phi = 15, theta = 0,zoom = 0.15 ,fov=80)
 
@@ -148,3 +204,12 @@ for (i in 1:360){
 #And run this command to convert the video to post to the web:
 #ffmpeg -i raymovie.mp4 -pix_fmt yuv420p -profile:v baseline -level 3 -vf scale=-2:-2 rayweb.mp4
 
+rgl::clear3d()
+elev_matrix_2 %>% 
+sphere_shade(zscale=10,texture = "imhof1") %>% 
+  add_shadow(ambmat,0.5) %>%
+  add_shadow(raymat) %>%
+  plot_3d(elev_matrix_2,zscale=50,fov=0,theta=-45,phi=45,windowsize=c(1000,800),zoom=0.75,
+          water=TRUE, waterdepth = 0, wateralpha = 0.5,watercolor = "lightblue",
+          waterlinecolor = "white",waterlinealpha = 0.5)
+render_snapshot()
