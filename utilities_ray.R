@@ -1,6 +1,6 @@
 
 # Change zero depths to fake depth based on distance to shore
-fake_depth <- function(elev_depth_matrix,depth_step=3) {
+fake_depth <- function(elev_depth_matrix,depth_step=5) {
   zeroes <- which(elev_depth_matrix == 0,arr.ind = T)
   maxrow <- dim(elev_depth_matrix)[1]
   maxcol <- dim(elev_depth_matrix)[2]
@@ -8,12 +8,11 @@ fake_depth <- function(elev_depth_matrix,depth_step=3) {
     row <- zeroes[i,1] 
     col <- zeroes[i,2]
     found_shore = FALSE
-    
     distance_to_shore = 1
     while (!found_shore) {
       if (row > distance_to_shore) adjacent_level[1] <- elev_depth_matrix[row - distance_to_shore, col] # south
-      if (row < maxrow - distance_to_shore) adjacent_level[2] <- elev_depth_matrix[row + distance_to_shore, col] # north
-      if (col > distance_to_shore) adjacent_level[3] <- elev_depth_matrix[row , col - distance_to_shore] # west
+      if (col > distance_to_shore) adjacent_level[2] <- elev_depth_matrix[row , col - distance_to_shore] # west
+      if (row < maxrow - distance_to_shore) adjacent_level[3] <- elev_depth_matrix[row + distance_to_shore, col] # north
       if (col < maxcol - distance_to_shore) adjacent_level[4] <- elev_depth_matrix[row , col + distance_to_shore] # east
       found_shore <- (max(adjacent_level) > 0)
       if (found_shore) {
