@@ -1,28 +1,32 @@
-M <- img[ , ]
-M <- ifelse(M < 0.5, 0, 1)
-image(M, col = c(1, 0))
 
-# inpsired by flood fill
-# https://en.wikipedia.org/wiki/Flood_fill
-unfloodfill <- function(row, col,max_depth,depth) {
-    if (max_depth == depth) return()
-    if (M[row, col] > 0) return()
-    M[row, col] <<- depth
-    unfloodfill(row - 1, col    , tcol, rcol) # south
-    unfloodfill(row + 1, col    , tcol, rcol) # north
-    unfloodfill(row    , col - 1, tcol, rcol) # west
-    unfloodfill(row    , col + 1, tcol, rcol) # east
-    return("filling completed")
+# Change zero depths to fake depth based on distance to shore
+fake_depth <- function(elev_depth_matrix,depth_step=3) {
+  zeroes <- which(elev_depth_matrix == 0,arr.ind = T)
+  maxrow <- dim(elev_depth_matrix)[1]
+  maxcol <- dim(elev_depth_matrix)[2]
+  for (i in 1:nrow(zeroes)){
+    row <- zeroes[i,1] 
+    col <- zeroes[i,2]
+    found_shore = FALSE
+    
+    distance_to_shore = 1
+    while (!found_shore) {
+      if (row > distance_to_shore) adjacent_level[1] <- elev_depth_matrix[row - distance_to_shore, col] # south
+      if (row < maxrow - distance_to_shore) adjacent_level[2] <- elev_depth_matrix[row + distance_to_shore, col] # north
+      if (col > distance_to_shore) adjacent_level[3] <- elev_depth_matrix[row , col - distance_to_shore] # west
+      if (col < maxcol - distance_to_shore) adjacent_level[4] <- elev_depth_matrix[row , col + distance_to_shore] # east
+      found_shore <- (max(adjacent_level) > 0)
+      if (found_shore) {
+        elev_depth_matrix[row,col] <- -depth_step * distance_to_shore
+      } else {
+        distance_to_shore <- distance_to_shore + 1
+      }
+    }
   }
-  
-  options(expressions = 10000)
-  startrow <- 100; startcol <- 100
-  floodfill(startrow, startcol, 0, 2)
-  
-  image(M, col = c(1, 0, 2))
-  
+  return(elev_depth_matrix)
 }
 
+# -------------------------------------------------------------------
 # Crop raster image
 crop_img <- function(elev_img,bbox){
   new_extent <- unlist(bbox) %>% matrix(nrow=2,ncol=2) %>% extent()

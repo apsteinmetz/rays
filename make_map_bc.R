@@ -97,9 +97,11 @@ elev_depth_matrix <- elev_depth %>%
   mutate(depth = ifelse(is.na(depth),elev,depth)) %>% 
   mutate(depth = ifelse(elev > 0, elev, depth)) %>% 
   # fake missing bathymetry by setting zero elevation to depth of minus 3 meters
-  mutate(depth = ifelse(depth == 0, -3 , depth)) %>% 
+  #mutate(depth = ifelse(depth == 0, -3 , depth)) %>% 
   pull(depth) %>% 
-  matrix(nrow = image_size$width,ncol = image_size$height)
+  matrix(nrow = image_size$width,ncol = image_size$height) %>% 
+  fake_depth(depth_step=3) %>% 
+  {.}
 
 # ---------------------------------------------------------------------
 
