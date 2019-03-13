@@ -2,6 +2,7 @@ library(raster)
 # devtools::install_github("tylermorganwall/rayshader")
 library(rayshader)
 library(tidyverse)
+library(reshape2)
 library(rgdal)
 library(sf)
 library(leaflet)
@@ -40,17 +41,17 @@ leaflet() %>%
 # load elevation data
 elev_file <- file.path("data", "cdem_dem_092K.tif")
 depth_file <- file.path("data", "bathymetric_bc.tif")
+
 elev_img <- raster::raster(elev_file)  %>% crop_img(bbox)
 elev_matrix <- matrix(
   raster::extract(elev_img, raster::extent(elev_img), buffer = 1000), 
-  nrow = ncol(elev_img), ncol = nrow(elev_img)
-)
+  nrow = ncol(elev_img), ncol = nrow(elev_img))
 
 depth_img <- raster::raster(depth_file)  %>% crop_img(bbox)
 depth_matrix <- matrix(
   raster::extract(depth_img, raster::extent(depth_img), buffer = 1000), 
-  nrow = ncol(depth_img), ncol = nrow(depth_img)
-)
+  nrow = ncol(depth_img), ncol = nrow(depth_img))
+
 #if elev_matrix is less than major_dim, reduce major_dim
 major_dim <- dim(depth_matrix) %>% max() %>% min(major_dim)
 image_size <- define_image_size(bbox, major_dim = major_dim)
@@ -58,49 +59,33 @@ image_size <- define_image_size(bbox, major_dim = major_dim)
 elev_matrix <- elev_matrix %>% downscale_elev(image_size)
 
 # join elev and depth
-elev_depth <- tibble(elev=as.vector(elev_matrix),depth=as.vector(depth_matrix))
+elev_depth <- full_join(melt(elev_matrix,value.name = "elev"),
+                        melt(depth_matrix,value.name = "depth")) %>% 
+  as_tibble()
 
-contradictions <-elev_depth %>% 
-  filter(elev > 0 & depth < 0) 
-
-# ----------------------------------------------------------------------
-
-  #look at data
-elev_depth %>% 
-  # filter(elev > 0 & depth < 0) %>% 
-  ggplot(aes(depth)) + 
-  geom_histogram(fill="blue",alpha=0.5) + 
-  geom_histogram(aes(elev),fill="darkgreen",alpha=0.5) + 
-  labs(title = "Combined Elevation and Bathymetric Data",
-       subtitle = "Contradictions! Coordinates with elev > 0 AND depth < 0",
-       x = "Meters Above Sea Level",
-       y = "Point Count",
-       caption = "Source: open.canada.ca")
-
-elev_depth %>% 
-  # filter(elev > 0 & depth < 0) %>% 
-  filter(!is.na(depth)) %>% 
-  ggplot(aes(depth,elev)) + 
-  geom_point() + 
-  geom_point(data=contradictions,color="red") + 
-  labs(subtitle = "Combined Elevation and Bathymetric Data",
-       title = "Contradictions! (Coordinates with elev > 0 AND depth < 0 in Red)",
-       x = "Depth",
-       y = "Elevation",
-       caption = "Source: open.canada.ca")
-
-# -------------------------------------------------------------
-
+#use watermap to supplement detection of missing bathymetry
+# if is water set elev to 0 so fake bathymetry gets added
+watermap <- detect_water(elev_matrix,zscale,min_area = 1000) 
+watermap_df <- watermap %>% 
+  melt() %>% 
+  rename(is_water = value)
 # combine into one conforming matrix
 # replace all NAs and values greater than zero in depth matrix with elev data and use that column
 elev_depth_matrix <- elev_depth %>% 
-  mutate(depth = ifelse(is.na(depth),elev,depth)) %>% 
+  full_join(watermap_df) %>% 
+  # set detected water to elev zero
+  # mutate(elev = ifelse(is_water==1,0,elev)) %>%
+  # set missing bathymetry to elevation
+  mutate(depth = ifelse(is.na(depth),elev,depth)) %>%
+  # let elevation < zero override bathymetry
   mutate(depth = ifelse(elev > 0, elev, depth)) %>% 
   # fake missing bathymetry by setting zero elevation to depth of minus 3 meters
   #mutate(depth = ifelse(depth == 0, -3 , depth)) %>% 
   pull(depth) %>% 
   matrix(nrow = image_size$width,ncol = image_size$height) %>% 
-  fake_depth(depth_step=3) %>% 
+  # fake missing bathymetry by setting zero depth values to depth based in distance to shore
+  # depth step is in meters per unit of distance to shore
+  fake_depth(depth_step=5) %>% 
   {.}
 
 # ---------------------------------------------------------------------
@@ -141,32 +126,29 @@ overlay_file <- "img/bc_map.png"
 overlay_img <- png::readPNG(overlay_file)
 
 # chose matrix to use
-elev_matrix_2 <- elev_depth_matrix
 # calculate rayshader layers
-ambmat <- ambient_shade(elev_matrix_2, zscale = zscale)
-raymat <- ray_shade(elev_matrix_2, anglebreaks=seq(1,10,1),zscale = zscale, lambert = TRUE)
-# watermap <- detect_water(elev_matrix_2,min_area = 2000)
+ambmat <- ambient_shade(elev_depth_matrix, zscale = zscale)
+raymat <- ray_shade(elev_depth_matrix, anglebreaks=seq(1,10,1),zscale = zscale, lambert = TRUE)
 
-
-# elev_matrix_2 %>%
-#   sphere_shade(texture = texture, zscale = zscale) %>%
-#   add_water(watermap, color = "imhof4") %>%
-#   add_shadow(raymat, max_darken = 0.4) %>%
-#   add_shadow(ambmat, max_darken = 0.5) %>%
-#   #add_overlay(overlay_img, alphalayer = 0.7) %>%
-#   #add_overlay(overlay_img2, alphalayer = 0.2) %>%
-#   plot_map()
+elev_depth_matrix %>%
+  sphere_shade(texture = texture, zscale = zscale) %>%
+  add_water(watermap, color = "imhof4") %>%
+  add_shadow(raymat, max_darken = 0.4) %>%
+  add_shadow(ambmat, max_darken = 0.5) %>%
+  #add_overlay(overlay_img, alphalayer = 0.7) %>%
+  #add_overlay(overlay_img2, alphalayer = 0.2) %>%
+  plot_map()
 
 
 rgl::clear3d()
-elev_matrix_2 %>% 
+elev_depth_matrix %>% 
   sphere_shade(texture = "imhof1") %>% 
-  # add_water(watermap, color = "imhof4") %>%
+  #add_water(watermap, color = "imhof4") %>%
   # add_overlay(overlay_img, alphalayer = 0.7) %>%
   # add_overlay(overlay_img2, alphalayer = 0.4) %>%
   add_shadow(raymat, max_darken = 0.5) %>%
   add_shadow(ambmat, max_darken = 0.5) %>%
-  plot_3d(elev_matrix_2, zscale = zscale, windowsize = c(1200, 1000),
+  plot_3d(elev_depth_matrix, zscale = zscale, windowsize = c(1200, 1000),
           theta = 25, phi = 30, zoom = 0.5, fov = 0, 
           soliddepth = "auto", 
           water = TRUE, 

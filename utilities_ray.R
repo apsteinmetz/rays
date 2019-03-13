@@ -9,6 +9,7 @@ fake_depth <- function(elev_depth_matrix,depth_step=5) {
     col <- zeroes[i,2]
     found_shore = FALSE
     distance_to_shore = 1
+    adjacent_level <- c(0,0,0,0)
     while (!found_shore) {
       if (row > distance_to_shore) adjacent_level[1] <- elev_depth_matrix[row - distance_to_shore, col] # south
       if (col > distance_to_shore) adjacent_level[2] <- elev_depth_matrix[row , col - distance_to_shore] # west
