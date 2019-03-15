@@ -29,26 +29,33 @@ elev_depth %>%
 
 # -------------------------------------------------------------
 
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(rayshader)
+# set below waterline points to zero so detect_water finds them
+mont_depth <- montereybay
+mont_depth[which(montereybay<0)] = 0
 
-elev_depth_matrix[] %>% 
-  melt() %>%
-  filter(value < 1) %>% 
-  ggplot(aes(Var1,Var2,fill=value))+geom_tile()
+watermap <- detect_water(mont_depth)
 
-watermap <- detect_water(elev_matrix,min_area = 400,zscale=zscale,cutoff = 0.999)
-wm <- watermap %>% 
-  melt() %>% 
-  rename(is_water=value)
+# turn watermap matrix into a data frame
+watermap_df <- watermap %>% 
+  melt(value.name = "is_water") %>% 
+  mutate(is_water = as.factor(is_water))
 
-elev <- elev_matrix %>% 
-  melt() %>% 
-  rename(elevation = value) %>% 
-  full_join(wm) %>% 
+# turn original matrix into a data frame and merge with watermap
+elev <- montereybay %>% 
+  melt(value.name = "elev") %>%
+  mutate(is_land = as.factor(ifelse(elev < 0 ,0,1))) %>% 
+  full_join(watermap_df) %>% 
   as_tibble()
 
-high_water <- elev %>% filter(elevation < 10)
-
-elev %>%   ggplot(aes(Var1,Var2,fill=as.factor(is_water)))+geom_tile() 
-
-  geom_tile(data=high_water,aes(Var1,Var2),color="red")
+#illustrate that latitude for watermap is north/south swapped vs. original matrix
+elev %>% 
+  filter(elev < 0) %>% 
+  ggplot() + 
+  geom_tile(aes(Var1,Var2,fill=is_land),alpha=0.5) +
+  geom_tile(data=watermap_df,aes(Var1,Var2,fill=is_water),alpha=0.8) +
+  NULL
 

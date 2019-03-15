@@ -65,16 +65,16 @@ elev_depth <- full_join(melt(elev_matrix,value.name = "elev"),
 
 #use watermap to supplement detection of missing bathymetry
 # if is water set elev to 0 so fake bathymetry gets added
-watermap <- detect_water(elev_matrix,zscale,min_area = 1000) 
-watermap_df <- watermap %>% 
-  melt() %>% 
-  rename(is_water = value)
+watermap <- detect_water(elev_matrix,zscale,min_area = 400) 
+watermap_df <- watermap %>%  
+  melt(value.name = "is_water") %>% 
+  as_tibble()
 # combine into one conforming matrix
 # replace all NAs and values greater than zero in depth matrix with elev data and use that column
 elev_depth_matrix <- elev_depth %>% 
-  full_join(watermap_df) %>% 
+  #full_join(watermap_df) %>% 
   # set detected water to elev zero
-  # mutate(elev = ifelse(is_water==1,0,elev)) %>%
+  #mutate(elev = ifelse(is_water==1,0L,elev)) %>%
   # set missing bathymetry to elevation
   mutate(depth = ifelse(is.na(depth),elev,depth)) %>%
   # let elevation < zero override bathymetry
@@ -85,7 +85,7 @@ elev_depth_matrix <- elev_depth %>%
   matrix(nrow = image_size$width,ncol = image_size$height) %>% 
   # fake missing bathymetry by setting zero depth values to depth based in distance to shore
   # depth step is in meters per unit of distance to shore
-  fake_depth(depth_step=5) %>% 
+  #fake_depth(depth_step=5) %>% 
   {.}
 
 # ---------------------------------------------------------------------
@@ -128,7 +128,7 @@ overlay_img <- png::readPNG(overlay_file)
 # chose matrix to use
 # calculate rayshader layers
 ambmat <- ambient_shade(elev_depth_matrix, zscale = zscale)
-raymat <- ray_shade(elev_depth_matrix, anglebreaks=seq(1,10,1),zscale = zscale, lambert = TRUE)
+raymat <- ray_shade(elev_depth_matrix, anglebreaks=seq(30,40,1),zscale = zscale, lambert = TRUE)
 
 elev_depth_matrix %>%
   sphere_shade(texture = texture, zscale = zscale) %>%
