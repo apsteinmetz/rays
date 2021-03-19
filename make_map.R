@@ -6,6 +6,7 @@ library(rgdal)
 library(sf)
 library(leaflet)
 source("utilities_ray.r")
+library(png)
 
 latlon_alder<-list(lat=38.374304,long=-106.1165398)
 latlon_salida<-list(lat=38.53,long=-105.9922354)
@@ -100,7 +101,7 @@ raymat <- ray_shade(elev_matrix, sunaltitude = 45,zscale = zscale, lambert = TRU
 
 # show one view
 elev_matrix %>%
-  sphere_shade(texture = texture, zscale = zscale) %>%
+  sphere_shade(texture = "bw", zscale = zscale) %>%
   # add_water(watermap, color = "imhof4") %>%
   add_shadow(raymat, max_darken = 0.9) %>%
   add_shadow(ambmat, max_darken = 0.5) %>%
@@ -111,15 +112,15 @@ elev_matrix %>%
 
 rgl::clear3d()
 elev_matrix %>% 
-  sphere_shade(texture = texture) %>% 
+  sphere_shade(texture = "bw") %>% 
   # add_water(watermap, color = "imhof4") %>%
-  add_overlay(overlay_img, alphalayer = 0.9) %>%
-  add_overlay(overlay_img2, alphalayer = 0.4) %>%
+  # add_overlay(overlay_img, alphalayer = 0.9) %>%
+  add_overlay(overlay_img2, alphalayer = 0.8) %>%
   add_shadow(raymat, max_darken = 0.4) %>%
-  add_shadow(ambmat, max_darken = 0.5) %>%
+  add_shadow(ambmat, max_darken = 0.6) %>%
   plot_3d(elev_matrix, zscale = zscale, windowsize = c(1200, 1000),
           water = FALSE, soliddepth = "auto", wateralpha = 0,
-          theta = 25, phi = 30, zoom = 0.5, fov = 60)
+          theta = 0, phi = 30, zoom = 0.5, fov = 60)
 
 #render_label(elev_matrix,text="House",x=house_pos$x,y=house_pos$y,z=4000,zscale=zscale,relativez=FALSE,freetype = FALSE)
 #render_label(elev_matrix,text="Ranch",x=ranch_pos$x,y=ranch_pos$y,z=4000,zscale=zscale,relativez=FALSE,freetype = FALSE)

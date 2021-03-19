@@ -1,3 +1,8 @@
+# normalize an object
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
 
 # Change zero depths to fake depth based on distance to shore
 fake_depth <- function(elev_depth_matrix,depth_step=5) {
