@@ -85,7 +85,7 @@ elev_depth_matrix <- elev_depth %>%
   matrix(nrow = image_size$width,ncol = image_size$height) %>% 
   # fake missing bathymetry by setting zero depth values to depth based in distance to shore
   # depth step is in meters per unit of distance to shore
-  #fake_depth(depth_step=5) %>% 
+  fake_depth(depth_step=5) %>% 
   {.}
 
 # ---------------------------------------------------------------------
