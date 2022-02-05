@@ -152,7 +152,7 @@ for (theta in start_theta+1:360){
   render_snapshot(paste0("frames/dominica",str_pad(frame_count,3,pad="0"),".png"))
 }
 
-# rgl::close3d()
+rgl::close3d()
 
 #Run this command in the command line using ffmpeg to stitch together a video:
 # using frame file name instead of "frame"
