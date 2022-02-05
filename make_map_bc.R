@@ -85,7 +85,7 @@ elev_depth_matrix <- elev_depth %>%
   matrix(nrow = image_size$width,ncol = image_size$height) %>% 
   # fake missing bathymetry by setting zero depth values to depth based in distance to shore
   # depth step is in meters per unit of distance to shore
-  fake_depth(depth_step=5) %>% 
+  #fake_depth(depth_step=5) %>% 
   {.}
 
 # ---------------------------------------------------------------------
@@ -183,17 +183,17 @@ for (i in 1:360){
 }
 
 #Run this command in the command line using ffmpeg to stitch together a video:
-#ffmpeg -framerate 10 -i frame%d.png -vcodec libx264 raymovie.mp4
+#ffmpeg -framerate 60 -i frame%d.png -vcodec libx264 raymovie.mp4
 
 #And run this command to convert the video to post to the web:
 #ffmpeg -i raymovie.mp4 -pix_fmt yuv420p -profile:v baseline -level 3 -vf scale=-2:-2 rayweb.mp4
 
-# rgl::clear3d()
-# elev_matrix_2 %>% 
-# sphere_shade(zscale=10,texture = "imhof1") %>% 
-#   add_shadow(ambmat,0.5) %>%
-#   add_shadow(raymat) %>%
-#   plot_3d(elev_matrix_2,zscale=50,fov=0,theta=-45,phi=45,windowsize=c(1000,800),zoom=0.75,
-#           water=TRUE, waterdepth = 0, wateralpha = 0.5,watercolor = "lightblue",
-#           waterlinecolor = "white",waterlinealpha = 0.5)
-# render_snapshot()
+rgl::clear3d()
+elev_matrix_2 %>% 
+sphere_shade(zscale=10,texture = "imhof1") %>% 
+  add_shadow(ambmat,0.5) %>%
+  add_shadow(raymat) %>%
+  plot_3d(elev_matrix_2,zscale=50,fov=0,theta=-45,phi=45,windowsize=c(1000,800),zoom=0.75,
+          water=TRUE, waterdepth = 0, wateralpha = 0.5,watercolor = "lightblue",
+          waterlinecolor = "white",waterlinealpha = 0.5)
+render_snapshot()
