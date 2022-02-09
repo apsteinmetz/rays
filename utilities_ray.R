@@ -3,7 +3,7 @@ normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
 }
 
-dms_to_dec <- function(deg, min, sec) {
+dms_to_dec <- function(deg=0, min=0, sec=0) {
   return(deg + min / 60 + sec / 3600)
 }
 
@@ -45,8 +45,11 @@ fake_depth <- function(elev_depth_matrix, depth_step = 5) {
 # -------------------------------------------------------------------
 # Crop raster image
 crop_img <- function(elev_img, bbox) {
-  new_extent <- unlist(bbox) %>% matrix(nrow = 2, ncol = 2) %>% extent()
-  elev_img <- elev_img %>% crop(new_extent)
+  new_extent <- unlist(bbox) %>% 
+    matrix(nrow = 2, ncol = 2) %>% 
+    extent()
+  elev_img <- elev_img %>% 
+    crop(new_extent)
   return(elev_img)
 }
 
