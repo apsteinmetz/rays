@@ -1,3 +1,41 @@
+# enlarge matrix, putting original in center of new
+enlarge_matrix <-function(m,size_ratio=c(1,1),init_value=0){
+  d <- dim(m)
+  new_m <- matrix(data=init_value,
+                  nrow = round(dim(m)[1]*size_ratio[1]),
+                  ncol = round(dim(m)[2]*size_ratio[2]))
+  insert_start <- c(round((dim(new_m)[1]-dim(m)[1])/2+1),
+                    round((dim(new_m)[2]-dim(m)[2])/2)+1)
+  insert_end <- c(insert_start[1]+dim(m)[1]-1,
+                  insert_start[2]+dim(m)[2]-1)
+  new_m[insert_start[1]:insert_end[1],
+        insert_start[2]:insert_end[2]] <- m
+  
+  return(new_m)
+}
+
+bbox_size_ratio <- function(bbox1,bbox2) {
+  x <- (bbox1$p1$long-bbox1$p2$long) / (bbox2$p1$long-bbox2$p2$long)
+  y <- (bbox1$p1$lat-bbox1$p2$lat) / (bbox2$p1$lat-bbox2$p2$lat)
+  return (c(x,y))
+  
+}
+
+# pad evevation matrix with zero height border
+# to overlay an image larger than the raster such
+# as a map 
+# takes a lat/long bbox
+make_elev_matrix_border <- function(elev_matrix, bigger_bbox) {
+  new_extent <- unlist(bigger_bbox) %>% 
+    matrix(nrow = 2, ncol = 2) %>% 
+    extent()
+  elev_img <- elev_img %>% 
+    setExtent(new_extent)
+  
+  return(elev_img)
+}
+
+
 # normalize an object
 normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))

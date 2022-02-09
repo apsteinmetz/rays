@@ -10,29 +10,39 @@ library(png)
 library(jpeg)
 
 
-# bounding box from midpoint
-latlon_gwl <- list(lat=dms_to_dec(41,11,24),long=-dms_to_dec(74,19,10))
-latlon_mid <- latlon_gwl
-lat_width <- 0.060
-lon_width <- 0.060
-major_dim <- 1200
-zscale = 20
-bbox <- list(
-  p1 = list(long=latlon_mid$long-lon_width, lat = latlon_mid$lat+lat_width),
-  p2 = list(long=latlon_mid$long+lon_width, lat = latlon_mid$lat-lat_width)
-)
+# # bounding box from midpoint
+# latlon_gwl <- list(lat=dms_to_dec(41,11,24),long=-dms_to_dec(74,19,10))
+# latlon_mid <- latlon_gwl
+# lat_width <- 0.060
+# lon_width <- 0.060
+# major_dim <- 1200
+# zscale = 20
+# bbox <- list(
+#   p1 = list(long=latlon_mid$long-lon_width, lat = latlon_mid$lat+lat_width),
+#   p2 = list(long=latlon_mid$long+lon_width, lat = latlon_mid$lat-lat_width)
+# )
 
-# bounding box from historical topo
+# bounding box from historical topo map extent
+nw <- list(lat = dms_to_dec(41,15),long=-dms_to_dec(74,30))
+se <- list(lat = dms_to_dec(41),long=-dms_to_dec(74,15))
+ne <-list(lat = nw$lat,long = se$long)
+sw <-list(lat = se$lat,long = nw$long)
+bbox_map <- list(
+  p1 = nw,
+  p2 = se
+)
+# bounding box from historical topo includes border
 nw <- list(lat = dms_to_dec(41,16,13),long=-dms_to_dec(74,30,20))
 se <- list(lat = dms_to_dec(40,58,52),long=-dms_to_dec(74,14,4))
 ne <-list(lat = nw$lat,long = se$long)
 sw <-list(lat = se$lat,long = nw$long)
-bbox <- list(
+bbox_full <- list(
   p1 = nw,
   p2 = se
 )
 
 
+bbox <- bbox_full
 
 # view bounding box.
 leaflet() %>%
@@ -43,16 +53,12 @@ leaflet() %>%
     fillColor = "transparent"
   ) %>%
   fitBounds(
-    lng1 = bbox$p1$long, lat1 = bbox$p1$lat,
-    lng2 = bbox$p2$long, lat2 = bbox$p2$lat
+    lng1 = bbox_map$p1$long, lat1 = bbox_map$p1$lat,
+    lng2 = bbox_map$p2$long, lat2 = bbox_map$p2$lat
   )
 
 
-# texture from http://matthewkling.github.io/media/rayshader/
-texture <- create_texture("red", "darkgreen",
-                          "khaki", "khaki", "khaki")
-
-image_size <- define_image_size(bbox, major_dim = 1200)
+image_size <- define_image_size(bbox, major_dim = 600)
 
 # # convert a lat/long to pixels on an image
 # house_pos <- find_image_coordinates(latlon_house$long,
@@ -99,12 +105,17 @@ elev_matrix <- matrix(
   nrow = ncol(elev_img), ncol = nrow(elev_img)
 )
 
-zscale = 1
+which(is.na(elev_matrix))
+
+zscale = 20
 
 # calculate rayshader layers
-#ambmat <- ambient_shade(elev_matrix, zscale = zscale)
+ambmat <- ambient_shade(elev_matrix, zscale = zscale,
+                          multicore = TRUE)
 # raymat <- ray_shade(elev_matrix,anglebreaks=seq(20,30,1),zscale = zscale, lambert = TRUE)
-raymat <- ray_shade(elev_matrix, sunaltitude = 45,zscale = zscale, lambert = TRUE)
+raymat <- ray_shade(elev_matrix, sunaltitude = 45,zscale = zscale, 
+                    lambert = TRUE,
+                    multicore = TRUE)
 # watermap <- detect_water(elev_matrix)
 
 
@@ -112,9 +123,9 @@ raymat <- ray_shade(elev_matrix, sunaltitude = 45,zscale = zscale, lambert = TRU
 elev_matrix %>%
   sphere_shade(texture = "bw", zscale = zscale) %>%
   # add_water(watermap, color = "imhof4") %>%
+  add_overlay(overlay_img, alphalayer = 1.0) %>%
   add_shadow(raymat, max_darken = 0.9) %>%
   add_shadow(ambmat, max_darken = 0.5) %>%
-  add_overlay(overlay_img, alphalayer = 0.70) %>%
 #  add_overlay(overlay_img2, alphalayer = 0.7) %>%
   plot_map()
 
@@ -124,7 +135,7 @@ elev_matrix %>%
   sphere_shade(texture = "bw") %>% 
   # add_water(watermap, color = "imhof4") %>%
   # add_overlay(overlay_img, alphalayer = 0.9) %>%
-  add_overlay(overlay_img2, alphalayer = 0.8) %>%
+  add_overlay(overlay_img, alphalayer = 1.0) %>%
   add_shadow(raymat, max_darken = 0.4) %>%
   add_shadow(ambmat, max_darken = 0.6) %>%
   plot_3d(elev_matrix, zscale = zscale, windowsize = c(1200, 1000),
@@ -162,3 +173,4 @@ for (theta in 1:360){
 #And run this command to convert the video to post to the web:
 #ffmpeg -i raymovie.mp4 -pix_fmt yuv420p -profile:v baseline -level 3 -vf scale=-2:-2 rayweb.mp4
 
+rgl::close3d()
