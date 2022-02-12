@@ -1,3 +1,11 @@
+extent_to_bbox <- function(ras){
+  bb <- bbox(ras)
+  bbx <- list(p1 = list(long=bb[1,1],lat=bb[2,1]),
+              p2 = list(long=bb[1,2],lat=bb[2,2]))
+  return(bbx)
+}
+
+
 #get the ratio of x and y bounding box sizes
 # your bbox structure and variable names might vary
 bbox_size_ratio <- function(bbox1,bbox2) {
@@ -7,7 +15,7 @@ bbox_size_ratio <- function(bbox1,bbox2) {
 }
 # enlarge matrix, putting original in center of new
 # set border to init_value
-enlarge_matrix <-function(m,size_ratio=c(x=1,y=1),init_value=0){
+border_matrix <-function(m,size_ratio=c(x=1,y=1),init_value=0){
   d <- dim(m)
   new_m <- matrix(data=init_value,
                   nrow = round(d[1]*size_ratio[1]),
