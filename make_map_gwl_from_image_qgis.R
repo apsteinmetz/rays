@@ -9,19 +9,18 @@ source("utilities_ray.r")
 geoTIFF_name <- "img/Greenwood Lake-1910_modified.tif"
 #geoTIFF_name <- "data/India_modified.tif"
 map_img <- raster::stack(geoTIFF_name)
-extent(map_img)
+full_extent <- extent(map_img)
 
-# change extent to visible map and crop
-new_extent <- extent(c(-74.5,-74.25,41.00,41.25))
-
-# #debug
-# new_extent <- extent(map_img)
 
 #reduce size for quicker plotting
 small_ras <- raster::aggregate(map_img,fact=5)
-cropped_array <- crop(small_ras,new_extent) %>% as.array()
 
-hillshade_img <- as.array(cropped_array/255)
+# change extent to visible map and crop
+borderless_extent <- extent(c(-74.5,-74.25,41.00,41.25))
+cropped_ras <- crop(small_ras,borderless_extent)
+
+#hillshade_img <- as.array(cropped_ras/255)
+hillshade_img <- as.array(small_ras/255)
 
 
 
@@ -64,16 +63,11 @@ hillshade_img %>%
 hillshade_img %>%
   add_shadow(raymat,0.3) %>%
   add_shadow(ambmat,0) %>%
-  plot_3d(elev_matrix,zscale=zscale,zoom = .2)
+  plot_3d(elev_matrix,zscale=zscale,zoom = )
 
 rgl::close3d()
 #Render snapshot with depth of field
 render_depth(focus=0.982,focallength = 4000)
 
-#Plot in 2D
-img %>%
-  add_shadow(ray_layer,0.3) %>%
-  add_shadow(ambient_layer,0) %>%
-  plot_map()
 
 
