@@ -7,7 +7,6 @@ library(raster)
 source("utilities_ray.r")
 
 geoTIFF_name <- "img/Greenwood Lake-1910_modified.tif"
-#geoTIFF_name <- "data/India_modified.tif"
 map_img <- raster::stack(geoTIFF_name)
 full_extent <- extent(map_img)
 
@@ -22,26 +21,26 @@ cropped_ras <- crop(small_ras,borderless_extent)
 #hillshade_img <- as.array(cropped_ras/255)
 hillshade_img <- as.array(small_ras/255)
 
-
-
 # -------------------------------------------------------------
 # Download external elevation data
 # get elevation data
 
 
-image_size <- define_image_size(extent_to_bbox(cropped_img), major_dim = 600)
-
-
+image_size <- define_image_size(extent_to_bbox(full_extent), major_dim = 600)
 
 elev_file = "data/gwl.tif"
-get_usgs_elevation_data(extent_to_bbox(cropped_img), 
+get_usgs_elevation_data(extent_to_bbox(map_img), 
                         size = image_size$size, file = elev_file,
                         sr_bbox = 4326, sr_image = 4326)
+
 elev_img <- raster::raster(elev_file)
 elev_matrix <- matrix(
   raster::extract(elev_img, raster::extent(elev_img), buffer = 1000), 
   nrow = ncol(elev_img), ncol = nrow(elev_img)
 )
+
+elev_matrix <- elev_matrix %>% 
+  zero_out_border(full_extent,borderless_extent)
 
 zscale = 20
 

@@ -1,3 +1,4 @@
+
 extent_to_bbox <- function(ras){
   bb <- bbox(ras)
   bbx <- list(p1 = list(long=bb[1,1],lat=bb[2,1]),
@@ -5,6 +6,32 @@ extent_to_bbox <- function(ras){
   return(bbx)
 }
 
+# reduce elevations in map border to zero
+zero_out_border <- function(full_elev_matrix,full_extent,borderless_extent){
+  img_size <- list(height=ncol(full_elev_matrix),width=nrow(full_elev_matrix))
+  full_bbox <- extent_to_bbox(full_extent)
+  borderless_bbox <- extent_to_bbox(borderless_extent)
+  xy1 <- find_image_coordinates(borderless_bbox$p1$long,
+                                borderless_bbox$p1$lat, 
+                                full_bbox, 
+                                img_size$width, img_size$height)
+  xy2 <- find_image_coordinates(borderless_bbox$p2$long,
+                                borderless_bbox$p2$lat, 
+                                full_bbox, 
+                                img_size$width, img_size$height)
+  full_elev_matrix[,1:(xy1$y-1)] = 0
+  full_elev_matrix[,(xy2$y+1):img_size$height] = 0
+  full_elev_matrix[1:(xy1$x-1),] = 0
+  full_elev_matrix[(xy2$x+1):img_size$width,] = 0
+  return(full_elev_matrix)
+}
+
+# # convert a lat/long to pixels on an image
+# house_pos <- find_image_coordinates(latlon_house$long,
+#                                     latlon_house$lat,
+#                                     bbox = bbox,
+#                                     image_width=image_size$width,
+#                                     image_height=image_size$height)
 
 #get the ratio of x and y bounding box sizes
 # your bbox structure and variable names might vary
