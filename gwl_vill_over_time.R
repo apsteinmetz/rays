@@ -150,7 +150,7 @@ rgl::close3d()
 #Plot in 3D
 for (h in 1:11){
   
-h = 1  
+
 hillshade_img %>%
   add_shadow(ray_shades[[h]],max_darken = 0.0) %>%
   plot_3d(elev_matrix,
@@ -166,16 +166,25 @@ rgl::close3d()
 render_snapshot()
 frame_count = 0
 azimuth = 90
-for (zoom in 80:30){
-  #  render_camera(phi = 90, theta = 0,zoom = zoom/100 ,fov=80)
-  frame_count <- frame_count + 1
+#for (zoom in 80:30){
+#  #  render_camera(phi = 90, theta = 0,zoom = zoom/100 ,fov=80)
+#  frame_count <- frame_count + 1
   #  render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
-}
+#}
 
-for (azimuth in 90:15){
-  render_camera(phi = azimuth, theta = 0,zoom = 0.3,fov=80)
-  frame_count <- frame_count + 1
-  render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
+for (h in 1:11){
+  hillshade_img %>%
+    add_shadow(ray_shades[[h]],max_darken = 0.0) %>%
+    plot_3d(elev_matrix,
+            theta= 355,
+            phi = 45,
+            zscale=zscale,zoom = 0.4)
+  
+# render_snapshot()  
+render_camera(phi = 45, theta = 355,zoom = 0.4,fov=0)
+frame_count <- frame_count + 1
+render_snapshot(paste0("frames/gwl/gwl",str_pad(frame_count,3,pad="0"),".png"))
+rgl::clear3d()
 }
 
 
