@@ -7,25 +7,26 @@ library(raster)
 library(suncalc)
 
 source("utilities_ray.r")
-load(file="data/crs_wgs84.rdata")
+# load(file="data/crs_wgs84.rdata")
 
 #get sun angles
-sun_positions <- 7:17 %>% map(function(h) 
+sun_positions <- 7:17 %>% map(function(h)
   getSunlightPosition(date = as.POSIXct(glue::glue("2017-11-12 {h}:00:00",tz = "EST")),
                       lat=41,lon = -74)) %>% 
   bind_rows() %>% 
   transmute(altitude = altitude *180/pi,
             azimuth = azimuth *180/pi) %>%
-  mutate(azimuth = ifelse(azimuth >= 0,azimuth + 180, 180 + azimuth))
-
+  group_by(altitude) %>% 
+  mutate(azimuth = ifelse(azimuth <= 0,azimuth + 180, 180 + azimuth)) %>% 
+  mutate(altitude = max(altitude,0))
 
 geoTIFF_name <- "data/gwl/1891c.tif"
 map_img <- raster::stack(geoTIFF_name)
 
 full_extent <- extent(map_img)
 
-#reduce size for quicker plotting
-small_ras <- raster::aggregate(map_img,fact=5)
+# reduce size for quicker plotting
+# small_ras <- raster::aggregate(map_img,fact=5)
 
 # change extent to visible map and crop
 
@@ -51,16 +52,16 @@ hillshade_img <- as.array(cropped_ras/255)
 
 # Download imagery -----------------------------------------
 # plot 2D# fetch overlay image
-overlay_file ="img/gwl_vill_sat.png"
-get_arcgis_map_image(bbox_village, map_type = "World_Imagery", file = overlay_file,
-                     width = image_size$width, height = image_size$height, 
-                     sr_bbox = 4326)
+#overlay_file ="img/gwl_vill_sat.png"
+#get_arcgis_map_image(bbox_village, map_type = "World_Imagery", file = overlay_file,
+#                     width = image_size$width, height = image_size$height, 
+#                     sr_bbox = 4326)
 
 # plot 2D# fetch overlay image
-overlay_file2 ="img/gwl_vill_road.png"
-get_arcgis_map_image(bbox_village, map_type = "World_Street_Map", file = overlay_file2,
-                     width = image_size$width, height = image_size$height, 
-                     sr_bbox = 4326)
+#overlay_file2 ="img/gwl_vill_road.png"
+#get_arcgis_map_image(bbox_village, map_type = "World_Street_Map", file = overlay_file2,
+#                     width = image_size$width, height = image_size$height, 
+#                     sr_bbox = 4326)
 
 # -------------------------------------------------------------
 # Download external elevation data
@@ -93,22 +94,35 @@ elev_matrix <- matrix(
 
 zscale = 20
 
-#ambmat <- ambient_shade(elev_matrix, 
-#                        zscale = zscale,
-#                        multicore = TRUE)
+ambmat <- ambient_shade(elev_matrix, 
+                        zscale = zscale,
+                        multicore = TRUE)
 
 
+
+h = 11
 raymat <- ray_shade(elev_matrix, 
-                    sunaltitude = 35,
-                    sunangle = 90,
+                    sunaltitude = sun_positions$altitude[h],
+                    sunangle = sun_positions$azimuth[h],
                     zscale = zscale, 
                     lambert = TRUE,
                     multicore = TRUE)
 
 
+ray_shades[[11]] <- raymat
+# show one view
+hillshade_img %>% 
+  #sphere_shade(elev_matrix) %>% 
+  #  add_overlay(array_img, alphalayer = 1.0) %>%
+  add_shadow(raymat, max_darken = 0.02) %>%
+  # doubles render time without doing much
+  # add_shadow(ambmat, max_darken = 0.5) %>%
+  plot_map()
+
+
 ray_shades <- map(1:11, function(h) {
   print(h)
-  ray_shade(
+  sun_shadow <- ray_shade(
     elev_matrix,
     sunaltitude = sun_positions$altitude[h],
     sunangle = sun_positions$azimuth[h],
@@ -116,25 +130,18 @@ ray_shades <- map(1:11, function(h) {
     lambert = TRUE,
     multicore = TRUE
   )
+
 })
 
   
-
-# show one view
-hillshade_img %>% 
-#sphere_shade(elev_matrix) %>% 
-#  add_overlay(array_img, alphalayer = 1.0) %>%
-  add_shadow(raymat, max_darken = 0.0) %>%
-#  add_shadow(ambmat, max_darken = 0.5) %>%
-  plot_map()
 
 
 
 #Plot in 3D
 hillshade_img %>%
-  add_shadow(ray_shades[[1]],max_darken = 0.0) %>%
+  add_shadow(ray_shades[[11]],max_darken = 0.0) %>%
   plot_3d(elev_matrix,
-          theta= 13,
+          theta= 355,
           phi = 45,
           zscale=zscale,zoom = 0.4)
 
@@ -147,13 +154,38 @@ h = 1
 hillshade_img %>%
   add_shadow(ray_shades[[h]],max_darken = 0.0) %>%
   plot_3d(elev_matrix,
-          theta= 13,
+          theta= 355,
           phi = 45,
           zscale=zscale,zoom = 0.4)
 
 }  
 rgl::close3d()
 
+
+# MAKE MOVIE -------------------------------------------
+render_snapshot()
+frame_count = 0
+azimuth = 90
+for (zoom in 80:30){
+  #  render_camera(phi = 90, theta = 0,zoom = zoom/100 ,fov=80)
+  frame_count <- frame_count + 1
+  #  render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
+}
+
+for (azimuth in 90:15){
+  render_camera(phi = azimuth, theta = 0,zoom = 0.3,fov=80)
+  frame_count <- frame_count + 1
+  render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
+}
+
+
+for (theta in 1:360){
+  render_camera(phi = 15, theta = theta,zoom = 0.3,fov=80)
+  frame_count <- frame_count + 1
+  render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
+}
+
+# ------------------------------------------------------
 
 
 
