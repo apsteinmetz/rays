@@ -7,47 +7,53 @@ library(raster)
 library(suncalc)
 
 source("utilities_ray.r")
-# load(file="data/crs_wgs84.rdata")
 
 #get sun angles
-sun_positions <- 7:17 %>% map(function(h)
-  getSunlightPosition(date = as.POSIXct(glue::glue("2017-11-12 {h}:00:00",tz = "EST")),
-                      lat=41,lon = -74)) %>% 
+sun_positions <- 1:47 %>% map(function(h) 
+  getSunlightPosition(date = as.POSIXct("2017-11-01 00:00:00", tz = "EST") + 
+                        h * 3600/2,
+                      lat=41,lon = -74
+                      )) %>% 
   bind_rows() %>% 
-  transmute(altitude = altitude *180/pi,
+  transmute(date,
+            altitude = altitude *180/pi,
             azimuth = azimuth *180/pi) %>%
   group_by(altitude) %>% 
   mutate(azimuth = ifelse(azimuth <= 0,azimuth + 180, 180 + azimuth)) %>% 
-  mutate(altitude = max(altitude,0))
-
-geoTIFF_name <- "data/gwl/1891c.tif"
-map_img <- raster::stack(geoTIFF_name)
-
-full_extent <- extent(map_img)
-
-# reduce size for quicker plotting
-# small_ras <- raster::aggregate(map_img,fact=5)
-
-# change extent to visible map and crop
-
-convert_extent <- function(longlat_extent,zone = "18T"){
-  sp_geo <- SpatialPoints(longlat_extent, CRS("+proj=longlat +datum=WGS84")) 
-  sp_utm <- spTransform(sp_geo,CRS(glue::glue("+proj=utm +zone={zone} +datum=WGS84"))) 
-  return(extent(sp_utm))
-  
-}
+  mutate(altitude = max(altitude,0)) %>% 
+  filter(altitude > 0) # daytime
 
 #wgs84
 village_extent_longlat <- extent(c(-74.33,-74.25,41.16,41.25))
-#nad83 used by usgs topos
-#village_extent <- convert_extent(village_extent_longlat)
-
 bbox_village <- extent_to_bbox(village_extent_longlat) 
-#cropped_small_ras <- crop(small_ras,village_extent)
-cropped_ras <- crop(map_img,village_extent_longlat)
 
-hillshade_img <- as.array(cropped_ras/255)
-#hillshade_img <- as.array(small_ras/255)
+# process all topo map image files ------------------------
+years = c(1891,1903,1910,1943,1954,2020)
+
+#length(hillshades[[1]])
+ref_size <- 9719640
+hillshades <- years %>% 
+  set_names() %>% 
+  map(function(y){
+  cat(y)
+  geoTIFF_name <- glue::glue("data/gwl/{y}c.tif")
+  map_img <- raster::stack(geoTIFF_name)
+  # change extent to visible map and crop
+  cropped_ras <- crop(map_img,village_extent_longlat)
+  # sized_ras <- raster::aggregate(cropped_ras,fact = length(cropped_ras)/ref_size)
+  hillshade_img <- as.array(cropped_ras/255)
+  return(hillshade_img)
+})
+
+# get old close-up map
+geoTIFF_name <- "img/Greenwood Lake village 1903_modified.tif"
+map_img <- raster::stack(geoTIFF_name)
+# change extent to visible map and crop
+#cropped_small_ras <- crop(small_ras,village_extent)
+small_ras <- raster::aggregate(map_img,fact=5)
+cropped_ras <- raster::extend(small_ras,village_extent_longlat,value=255)
+village_1903_img <- as.array(cropped_ras/255)
+
 
 
 # Download imagery -----------------------------------------
@@ -70,7 +76,7 @@ hillshade_img <- as.array(cropped_ras/255)
 # determine how fine grained the shadow map is
 # higher will slow rendering time
 # does not affect imagery
-shadow_pixels <- 400
+shadow_pixels <- 600
 
 image_size <- define_image_size(extent_to_bbox(village_extent_longlat), 
                                 major_dim = shadow_pixels)
@@ -86,9 +92,6 @@ elev_matrix <- matrix(
   nrow = ncol(elev_img), ncol = nrow(elev_img)
 )
 
-#elev_matrix <- elev_matrix %>% 
-#  zero_out_border(full_extent,borderless_extent)
-
 # ----------------------------------------------------
 # calculate shadow maps for each daylight hour
 
@@ -99,41 +102,65 @@ ambmat <- ambient_shade(elev_matrix,
                         multicore = TRUE)
 
 
-
 h = 11
 raymat <- ray_shade(elev_matrix, 
-                    sunaltitude = sun_positions$altitude[h],
-                    sunangle = sun_positions$azimuth[h],
-                    zscale = zscale, 
-                    lambert = TRUE,
-                    multicore = TRUE)
+                     sunaltitude = sun_positions$altitude[h],
+                     sunangle = sun_positions$azimuth[h],
+                     zscale = zscale, 
+                     lambert = TRUE,
+                     multicore = TRUE)
 
 
-ray_shades[[11]] <- raymat
+# RUN ONCE ----------------------------------------------------
+# pre compute list of rayshades for saving
+
+ray_shades <- 1:nrow(sun_positions) %>% 
+  set_names() %>% 
+  map(function(h) {
+    print(h)
+    ray_shade(
+      elev_matrix,
+      sunaltitude = sun_positions$altitude[h],
+      sunangle = sun_positions$azimuth[h],
+      zscale = zscale,
+      lambert = TRUE,
+      multicore = TRUE
+    )
+  })
+save(ray_shades,file="data/ray_shades.rdata")
+# -------------------------------------------------------------------
+load("data/ray_shades.rdata")
+
+# TEST --------------------------------------------------------------
+hillshade_img <- hillshades[[5]]
 # show one view
 hillshade_img %>% 
-  #sphere_shade(elev_matrix) %>% 
-  #  add_overlay(array_img, alphalayer = 1.0) %>%
-  add_shadow(raymat, max_darken = 0.02) %>%
-  # doubles render time without doing much
-  # add_shadow(ambmat, max_darken = 0.5) %>%
+  add_shadow(ray_shades[[6]], max_darken = 0.02) %>%
   plot_map()
 
+#Plot in 3D
+hillshade_img %>%
+  add_shadow(ray_shades[[6]],max_darken = 0.0) %>%
+  plot_3d(elev_matrix,
+          theta= 355,
+          phi = 45,
+          zscale=zscale,zoom = 0.4)
+render_label(ray_shades[[3]],text="1954",
+             textsize=8,
+             textcolor = "darkblue",
+             x=325,y=550,z=10)
+rgl::clear3d()
 
-ray_shades <- map(1:11, function(h) {
-  print(h)
-  sun_shadow <- ray_shade(
-    elev_matrix,
-    sunaltitude = sun_positions$altitude[h],
-    sunangle = sun_positions$azimuth[h],
-    zscale = zscale,
-    lambert = TRUE,
-    multicore = TRUE
-  )
+# # just village 
+# village_1903_img %>%
+#   add_shadow(ray_shades[[5]],max_darken = 0.0) %>%
+#   plot_3d(elev_matrix,
+#           theta= 355,
+#           phi = 35,
+#           zscale=zscale,zoom = 0.2)
+# 
+# rgl::close3d()
 
-})
-
-  
 
 
 
@@ -149,7 +176,6 @@ rgl::close3d()
 
 #Plot in 3D
 for (h in 1:11){
-  
 
 hillshade_img %>%
   add_shadow(ray_shades[[h]],max_darken = 0.0) %>%
@@ -163,36 +189,45 @@ rgl::close3d()
 
 
 # MAKE MOVIE -------------------------------------------
-render_snapshot()
+rgl::clear3d()
 frame_count = 0
-azimuth = 90
+azimuth = 45
 #for (zoom in 80:30){
 #  #  render_camera(phi = 90, theta = 0,zoom = zoom/100 ,fov=80)
 #  frame_count <- frame_count + 1
   #  render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
 #}
 
-for (h in 1:11){
-  hillshade_img %>%
-    add_shadow(ray_shades[[h]],max_darken = 0.0) %>%
-    plot_3d(elev_matrix,
-            theta= 355,
-            phi = 45,
-            zscale=zscale,zoom = 0.4)
-  
-# render_snapshot()  
-render_camera(phi = 45, theta = 355,zoom = 0.4,fov=0)
-frame_count <- frame_count + 1
-render_snapshot(paste0("frames/gwl/gwl",str_pad(frame_count,3,pad="0"),".png"))
-rgl::clear3d()
+for (y in 1:length(years)){
+  print(years[y])
+  for (h in 1:nrow(sun_positions)){
+    print(h)
+    hillshades[[y]] %>%
+      add_shadow(ray_shades[[h]],max_darken = 0.0) %>%
+      plot_3d(elev_matrix,
+              theta= 355,
+              phi = 45,
+              zscale=zscale,zoom = 0.4)
+    
+    render_label(ray_shades[[y]],text=years[y],
+                 textsize=8,
+                 textcolor = "darkblue",
+                 x=350,y=550,z=10)
+    # render_snapshot()  
+    render_camera(phi = 45, theta = 355,zoom = 0.4,fov=0)
+    frame_count <- frame_count + 1
+    render_snapshot(paste0("frames/gwl/gwl",str_pad(frame_count,3,pad="0"),".png"))
+    rgl::clear3d()
+  }
 }
 
 
-for (theta in 1:360){
-  render_camera(phi = 15, theta = theta,zoom = 0.3,fov=80)
-  frame_count <- frame_count + 1
-  render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
-}
+
+# for (theta in 1:360){
+#   render_camera(phi = 15, theta = theta,zoom = 0.3,fov=80)
+#   frame_count <- frame_count + 1
+#   render_snapshot(paste0("frames/denison",str_pad(frame_count,3,pad="0"),".png"))
+# }
 
 # ------------------------------------------------------
 

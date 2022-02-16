@@ -1,3 +1,9 @@
+convert_extent_to_utm <- function(longlat_extent,zone = "18T"){
+  sp_geo <- SpatialPoints(longlat_extent, CRS("+proj=longlat +datum=WGS84")) 
+  sp_utm <- spTransform(sp_geo,CRS(glue::glue("+proj=utm +zone={zone} +datum=WGS84"))) 
+  return(extent(sp_utm))
+  
+}
 
 extent_to_bbox <- function(ras){
   bb <- bbox(ras)
