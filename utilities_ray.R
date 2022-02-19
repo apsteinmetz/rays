@@ -1,10 +1,3 @@
-convert_extent_to_utm <- function(longlat_extent,zone = "18T"){
-  sp_geo <- SpatialPoints(longlat_extent, CRS("+proj=longlat +datum=WGS84")) 
-  sp_utm <- spTransform(sp_geo,CRS(glue::glue("+proj=utm +zone={zone} +datum=WGS84"))) 
-  return(extent(sp_utm))
-  
-}
-
 extent_to_bbox <- function(ras){
   bb <- bbox(ras)
   bbx <- list(p1 = list(long=bb[1,1],lat=bb[2,1]),
@@ -12,9 +5,23 @@ extent_to_bbox <- function(ras){
   return(bbx)
 }
 
+convert_extent_to_utm <- function(longlat_extent,zone = "18T"){
+  sp_geo <- SpatialPoints(longlat_extent, CRS("+proj=longlat +datum=WGS84")) 
+  sp_utm <- spTransform(sp_geo,CRS(glue::glue("+proj=utm +zone={zone} +datum=WGS84"))) 
+  return(extent(sp_utm))
+  
+}
+
+
+
 # reduce elevations in map border to zero
-zero_out_border <- function(full_elev_matrix,full_extent,borderless_extent){
-  img_size <- list(height=ncol(full_elev_matrix),width=nrow(full_elev_matrix))
+# totally screwed kup
+# I do not know why I have to transpose matrix back and forth
+# top and and bottom are still backwards
+zero_out_border <- function(elev_matrix,full_extent,borderless_extent){
+  elev_matrix <- t(elev_matrix)
+  img_size <- list(height=nrow(elev_matrix),
+                   width=ncol(elev_matrix))
   full_bbox <- extent_to_bbox(full_extent)
   borderless_bbox <- extent_to_bbox(borderless_extent)
   xy1 <- find_image_coordinates(borderless_bbox$p1$long,
@@ -25,11 +32,19 @@ zero_out_border <- function(full_elev_matrix,full_extent,borderless_extent){
                                 borderless_bbox$p2$lat, 
                                 full_bbox, 
                                 img_size$width, img_size$height)
-  full_elev_matrix[,1:(xy1$y-1)] = 0
-  full_elev_matrix[,(xy2$y+1):img_size$height] = 0
-  full_elev_matrix[1:(xy1$x-1),] = 0
-  full_elev_matrix[(xy2$x+1):img_size$width,] = 0
-  return(full_elev_matrix)
+  # bottom
+  # elev_matrix[1:(xy1$y),] = 0
+  # top
+  # elev_matrix[(xy2$y):img_size$height,] = 0
+  elev_matrix[,1:(xy1$x)] = 0
+  elev_matrix[,(xy2$x):img_size$width] = 0
+  bottom_trim = img_size$height - xy2$y
+  top_trim <- img_size$height - xy1$y
+  elev_matrix[1:bottom_trim,] = 0
+  elev_matrix[top_trim:img_size$height,] = 0
+  
+  
+  return(t(elev_matrix))
 }
 
 # # convert a lat/long to pixels on an image
