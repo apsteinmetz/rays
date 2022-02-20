@@ -19,11 +19,11 @@ convert_extent_to_utm <- function(longlat_extent,zone = "18T"){
 # I do not know why I have to transpose matrix back and forth
 # top and and bottom are still backwards
 zero_out_border <- function(elev_matrix,full_extent,borderless_extent){
- r1 <- raster::raster(elev_matrix)
- extent(r1) <- full_extent
- r2 <- raster::crop(r1,borderless_extent) %>% 
+ ras1 <- raster::raster(elev_matrix)
+ extent(ras1) <- borderless_extent
+ ras2 <- raster::crop(ras1,borderless_extent) %>% 
    raster::extend(full_extent,value=0)
- return(as.matrix(r2))
+ return(as.matrix(ras2))
  
 }
 
