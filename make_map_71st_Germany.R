@@ -15,14 +15,15 @@ source("utilities_ray.r")
 geoTIFF_name <- "data/71st Inf Div Occupation Zone_modified.tif"
 map_img <- raster::stack(geoTIFF_name)
 full_extent <- extent(map_img)
+borderless_extent <- extent(c(9.714,11.3266,47.2157,49.0322))
 
 #reduce size for quicker plotting
 small_ras <- raster::aggregate(map_img,fact=5)
 
-#cropped_ras <- raster::crop(small_ras,borderless_extent)
+cropped_ras <- raster::crop(small_ras,borderless_extent)
 
-#hillshade_img <- as.array(cropped_ras/255)
 hillshade_img <- as.array(small_ras/255)
+#hillshade_img <- as.array(small_ras/255)
 
 # texture from http://matthewkling.github.io/media/rayshader/
 texture <- create_texture("red", "darkgreen",
@@ -66,8 +67,7 @@ elev_file <- file.path("data", "schwaben.tif")
 # -------------------------------------------------------------
 # Download external data
 
-elev_img <- get_elev_raster(small_ras,z=7) %>% 
-  raster::crop(full_extent)
+elev_img <- get_elev_raster(cropped_ras,z=7)
 # -------------------------------------------------------------
 
 #load overlays
@@ -75,18 +75,15 @@ elev_img <- get_elev_raster(small_ras,z=7) %>%
 #overlay_img <- png::readPNG(overlay_file)
 # load elevation data
 
-borderless_extent <- extent(c(9.714,11.3266,47.2157,49.0322))
-
 # change extent to visible map and crop
 elev_matrix <- matrix(
   raster::extract(elev_img, raster::extent(elev_img), buffer = 1000), 
   nrow = ncol(elev_img), ncol = nrow(elev_img)
 )
 
-
-# totally screwed up
-# elev_matrix <- elev_matrix %>% 
-#   zero_out_border(full_extent,borderless_extent)
+# flatten border
+elev_matrix <- elev_matrix %>% raster::raster() %>% 
+   zero_out_border(full_extent,borderless_extent)
 
 # calculate rayshader layers
 zscale = 200
