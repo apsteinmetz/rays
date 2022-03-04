@@ -51,7 +51,7 @@ elev_matrix <- matrix(
 #elev_matrix <- elev_matrix %>% 
 #  zero_out_border(full_extent,borderless_extent)
 
-zscale = 40
+zscale = 30
 
 #ambmat <- ambient_shade(elev_matrix, zscale = zscale,
 #                        multicore = TRUE)
