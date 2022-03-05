@@ -41,3 +41,13 @@ render_label(montereybay,lat = santa_cruz[1], long = santa_cruz[2],
 render_snapshot()
 
 montereybay
+
+getSunlightTimes(date = Sys.Date(), 
+                 keep = c("sunrise", "sunset"), 
+                 lat = lot_pos$lat, lon = lot_pos$long, 
+                 tz = "MST")
+
+
+getSunlightPosition(date = as.POSIXct(glue::glue("2022-03-04 7:00"),tz = "America/Denver"),
+                    lat=lot_pos$lat,lon =lot_pos$long)
+  
