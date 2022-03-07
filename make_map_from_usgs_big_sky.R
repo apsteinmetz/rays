@@ -5,6 +5,7 @@ library(tidyverse)
 library(rayshader)
 library(raster)
 library(suncalc)
+library(lubridate)
 source("utilities_ray.r")
 
 
@@ -30,29 +31,46 @@ rgb_scaler <- max(hillshade_img,na.rm = TRUE)
 hillshade_img <- hillshade_img/rgb_scaler
 
 # get house pos
+lot_pos <- NULL
 lot_pos$long <- -dms_to_dec(111,20,45.26)
 lot_pos$lat <- dms_to_dec(45,14,28.26)
 bbox = extent_to_bbox(crop_extent)
 
-# get sun positions
-winter_sun <- sun_positions <- 7:17 %>% map(function(h) 
-  getSunlightPosition(date = as.POSIXct(glue::glue("2022-02-04 {h}:00:00"),tz = "America/Denver"),
-                      lat=lot_pos$lat,lon =lot_pos$long)) %>% 
-  bind_rows() %>% 
-  transmute(hour = lubridate::hour(date),
-            altitude = altitude *180/pi,
-            azimuth = azimuth *180/pi) %>%
-  mutate(azimuth = ifelse(azimuth >= 0,azimuth + 180, 180 + azimuth))
 
-summer_sun <- sun_positions <- 7:17 %>% map(function(h) 
-  getSunlightPosition(date = as.POSIXct(glue::glue("2017-07-12 {h}:00:00"),tz = "America/Denver"),
-                      lat=lot_pos$lat,lon =lot_pos$long)) %>% 
-  bind_rows() %>% 
-  transmute(hour = lubridate::hour(date),
-            altitude = altitude *180/pi,
-            azimuth = azimuth *180/pi) %>%
-  mutate(azimuth = ifelse(azimuth >= 0,azimuth + 180, 180 + azimuth))
 
+# get sun positions at minute intervals
+get_sun_positions <- function(date=format(Sys.time(),"%Y-%m-%d"), 
+                              zone = "EST",
+                              minute_increment = 60,
+                              lat=41,lon=-74) {
+  date_time = as.POSIXct(date,tz = zone)
+  full_day <- seq.POSIXt(from = date_time,
+             by=paste(minute_increment,"min"),
+             length.out = round((24*60)/minute_increment))
+  
+  getSunlightPosition(
+        date =full_day,
+        lat = lat,lon = lon) %>% 
+    transmute(time = hms::as_hms(date),
+      altitude = altitude * 180 / pi,
+      azimuth = azimuth * 180 / pi
+    ) %>%
+    mutate(azimuth = ifelse(azimuth >= 0, azimuth + 180, 180 + azimuth)) %>%
+    filter(altitude > 0) %>% 
+    {.}
+}
+
+
+
+winter_sun <- get_sun_positions("2022-12-20",zone="MST",
+                                minute_increment = 15,
+                                lat = lot_pos$lat,
+                                lon = lot_pos$long)
+    
+summer_sun <- get_sun_positions("2022-06-20",zone="MST",
+                                minute_increment = 15,
+                                lat = lot_pos$lat,
+                                lon = lot_pos$long)
 
 # -------------------------------------------------------------
 # Download external elevation data
