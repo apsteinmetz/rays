@@ -92,39 +92,13 @@ elev_matrix <- matrix(
 )
 
 
-zscale = 30
+zscale = 8
 
 #ambmat <- ambient_shade(elev_matrix, zscale = zscale,
 #                        multicore = TRUE)
 raymat <- ray_shade(elev_matrix, sunaltitude = 5,zscale = zscale, 
                     lambert = TRUE,
                     multicore = TRUE)
-
-# show one view
-hillshade_img %>% 
-  add_shadow(ray_shades_w[[11]], max_darken = 0.0) %>%
-#  add_shadow(ambmat, max_darken = 0.1) %>%
-  plot_map()
-
-
-#Plot in 3D
-rgl::clear3d()
-hillshade_img %>%
-  add_shadow(raymat,0.3) %>%
-#  add_shadow(ambmat,0) %>%
-  plot_3d(elev_matrix,zscale=zscale,zoom = .5)
-render_label(elev_matrix,
-             text = "Greg and Arika's Lot",
-             lat = lot_pos$lat,long = lot_pos$long,
-             extent = extent(small_ras_crop),
-             zscale = zscale,
-             altitude = 3000)
-
-
-render_snapshot()
-rgl::close3d()
-#Render snapshot with depth of field
-#render_depth(focus=0.982,focallength = 4000)
 
 
 # shadows over the course of a day
@@ -157,6 +131,33 @@ ray_shades_w <- 1:nrow(winter_sun) %>%
     )
   })
 save(ray_shades_w,file="data/ray_shades_big_sky_w.rdata")
+
+# show one view
+hillshade_img %>% 
+  add_shadow(ray_shades_w[[34]], max_darken = 0.0) %>%
+#  add_shadow(ambmat, max_darken = 0.1) %>%
+  plot_map()
+
+
+#Plot in 3D
+rgl::clear3d()
+hillshade_img %>%
+  add_shadow(ray_shades_w[[30]],0.3) %>%
+#  add_shadow(ambmat,0) %>%
+  plot_3d(elev_matrix,zscale=zscale,zoom = .7,theta = 0,phi = 45)
+render_label(elev_matrix,
+             text = "Greg and Arika's Lot",
+             lat = lot_pos$lat,long = lot_pos$long,
+             extent = extent(small_ras_crop),
+             zscale = zscale,
+             altitude = 3000)
+
+
+render_snapshot()
+rgl::close3d()
+#Render snapshot with depth of field
+#render_depth(focus=0.982,focallength = 4000)
+
 # MAKE MOVIE -------------------------------------------
 rgl::clear3d()
 frame_count = 0
@@ -166,8 +167,9 @@ for (h in 1:nrow(winter_sun)){
   hillshade_img %>%
       add_shadow(ray_shades_w[[h]],max_darken = 0.0) %>%
       plot_3d(elev_matrix,
+              theta = 0,phi = 45,
               zscale=zscale,
-              zoom = 0.5)
+              zoom = 0.7)
     
   render_label(elev_matrix,
                text = "Greg and Arika's Lot",
