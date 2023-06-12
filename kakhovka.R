@@ -5,9 +5,18 @@ library(rayshader)
 library(sf)
 library(raster)
 library(leaflet)
+library(leaflet.extras2)
 library(osmdata)
 library(gifski)
+library(magick)
+library(basemaps)
 
+
+pretty_print_crs <- function(sp_object){
+  crs(sp_object) |> enframe(name=NULL) |> 
+    separate_longer_delim(cols="value",delim = "\n") |> 
+    print(n=50)
+}
 dms_to_dec <- function(deg=0, min=0, sec=0) {
   return(deg + min / 60 + sec / 3600)
 }
@@ -16,18 +25,15 @@ kh_loc <- data.frame(lat = c(dms_to_dec(46,51,00),dms_to_dec(46,18,00)),
 
 
 # show map
-leaflet() |> 
+lf <- leaflet() |> 
   # setView(33,46.25,zoom = 10) |> 
   fitBounds(kh_loc$lon[1],kh_loc$lat[1],kh_loc$lon[2],kh_loc$lat[2]) |> 
   addProviderTiles(providers$Esri.WorldImagery) |> 
   addProviderTiles(providers$CartoDB.PositronOnlyLabels,
                    options = providerTileOptions(opacity = 1))
   
-
-
 kherson_dnipro <- kh_loc |> 
   st_as_sf(coords = c("lon","lat"),crs = 4326)
-
 
 # get the topy matrix
 #kherson_elev <- get_elev_raster(kherson_dnipro, src = "gl1", clip = "bbox") 
@@ -40,11 +46,23 @@ pal <- colorRampPalette(c("darkblue","limegreen"))
 plot(kherson_elev, col = pal(10))
 
 
+# get image overlay
+satview <- basemap_png(
+  ext = kherson_dnipro,
+  map_service = "esri",
+  map_type = "world_imagery",
+  map_res = NULL,
+  verbose = TRUE,
+  browse = FALSE
+)
+
 
 
 kh_elmat <- raster_to_matrix(kherson_elev)
 base_map <- kh_elmat|> 
-  sphere_shade(texture = "imhof1")
+  sphere_shade(texture = "imhof1") |> 
+  rayshader::add_overlay(satview)
+  
 
 
 base_map |> 
@@ -68,9 +86,10 @@ ggplot(kherson_lines, aes(color = osm_id)) +
   labs(title = "Kherson Roads from Open Street Map")
 
 # -----------------------------------------------------------
-plot_rising_water <- function(water_level = 0) {
+plot_rising_water <- function(water_level = 0,show_map = FALSE) {
+  print(water_level)
   flood_elmat <- ifelse(kh_elmat < water_level, 0, kh_elmat)
-  base_map |>
+  flood_map <- base_map |>
     add_water(detect_water(flood_elmat), color = "desert") |>
     add_overlay(
       generate_line_overlay(
@@ -79,25 +98,29 @@ plot_rising_water <- function(water_level = 0) {
         extent = extent(extent(kherson_dnipro)),
         linewidth = 2
       )
-    ) |>
-    
-    
-    save_png(
-      filename = paste0("frames/kakhovka/flood_", formatC(water_level, width = 3, flag = "0"), ".png"),
-      title_text = paste0(
-        "Flood Inundation of the Dnipro\nAfter Kakhovka Dam Destruction\nWater Level:",
-        formatC(water_level, width = 3, flag = " "),
-        " Meters"
-      ),
-      title_size = 60,
-      title_bar_color = "white"
     )
-  
-  
+  if(show_map){
+    plot_map(flood_map)
+  } else {
+    flood_map |> 
+      save_png(
+        filename = paste0("frames/kakhovka/flood_", formatC(water_level, width = 3, flag = "0"), ".png"),
+        title_text = paste0(
+          "Flood Inundation of the Dnipro\nAfter Kakhovka Dam Destruction\nWater Level:",
+          formatC(water_level, width = 3, flag = " "),
+          " Meters"
+        ),
+        title_size = 60,
+        title_bar_color = "white"
+      )
+    
+  }
 }
+
+
 # -----------------------------------------------------------
 # generate frames
-0:10 |> walk(plot_rising_water)
+0:8 |> walk(plot_rising_water)
 
 # make GIF
 target_dir <- "frames/kakhovka"
@@ -105,3 +128,12 @@ fnames <- paste0("frames\\kakhovka\\", dir("frames/kakhovka"))
 # add a pause at beginning and end by repeating frames
 fnames <- c(rep(fnames[1],5),fnames,rep(fnames[length(fnames)],5))
 gifski(fnames,"frames/flood.gif",delay = 1/5,loop = TRUE)
+
+# alternative to blend frames smoothly using magick package
+animation <- image_read(fnames[1:9]) |> 
+  image_resize("1000x") |> 
+  image_morph() |> 
+  image_animate() |> 
+  image_write(path = "frames/flood.gif",format = "gif")
+
+
