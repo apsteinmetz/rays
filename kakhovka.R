@@ -130,7 +130,7 @@ fnames <- c(rep(fnames[1],5),fnames,rep(fnames[length(fnames)],5))
 gifski(fnames,"frames/flood.gif",delay = 1/5,loop = TRUE)
 
 # alternative to blend frames smoothly using magick package
-animation <- image_read(fnames[1:9]) |> 
+image_read(fnames[1:9]) |> 
   image_resize("1000x") |> 
   image_morph() |> 
   image_animate() |> 
