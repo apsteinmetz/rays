@@ -9,12 +9,15 @@ source("utilities_ray.r")
 library(png)
 library(jpeg)
 library(elevatr)
+library(magick)
 
 
 geoTIFF_name <- "data/71st Inf Div Occupation Zone_modified.tif"
 map_img <- raster::stack(geoTIFF_name)
+map_png <- readPNG("data/71st Inf Div Occupation Zone_modified.png")
 full_extent <- extent(map_img)
 borderless_extent <- extent(c(9.714,11.3266,47.2157,49.0322))
+inset_extent <- extent(c(9.714,10.37657,48.04141,49.0322))
 
 #reduce size for quicker plotting
 small_ras <- raster::aggregate(map_img,fact=5)
@@ -23,6 +26,7 @@ cropped_ras <- raster::crop(small_ras,borderless_extent)
 raw_elevation <- get_elev_raster(raster(small_ras), z = 9)
 
 elevation <-raster::crop(raw_elevation,extent(small_ras))
+crop_elevation <- raster::crop(raw_elevation,extent(cropped_ras))
 base_raster <- elevation * 0 + 450
 elevation <- merge(crop_elevation, base_raster)
 
@@ -46,15 +50,15 @@ plot_map(img_rgb)
 elev_matrix <- raster_to_matrix(elevation)
 # elev_array <- as.array(small_ras)
 
-ray_shadow <- ray_shade(elev_matrix, sunaltitude = 40, zscale = 30, multicore = TRUE)
-ambient_shadow <- ambient_shade(elev_matrix, zscale = 30)
+ray_shadow <- ray_shade(elev_matrix, sunaltitude = 40, zscale = 3, multicore = TRUE)
+ambient_shadow <- ambient_shade(elev_matrix, zscale = 3)
 
 elev_matrix %>%
   sphere_shade() %>%
-  add_overlay(elev_array) %>%
-  # add_shadow(ray_shadow, max_darken = 0.7) %>%
-  # add_shadow(ambient_shadow, 0.25) %>%
-  plot_map()
+  #add_overlay(map_png) %>%
+  #add_shadow(ray_shadow, max_darken = 0.7) %>%
+  #add_shadow(ambient_shadow, 0.25) %>%
+  plot_3d(elev_matrix)
 
 # texture from http://matthewkling.github.io/media/rayshader/
 texture <- create_texture("red", "darkgreen",
