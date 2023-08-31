@@ -8,6 +8,8 @@ library(png)
 library(sf)
 library(terra)
 library(osrm)
+devtools::install_github("16EAGLE/basemaps")
+library(basemaps)
 
 
 start_point <- c(-74.2516694,41.0288009) # where skyline drive meets i-287
@@ -35,7 +37,7 @@ route_overlay <- generate_line_overlay(gwl_route_detailed,
                                        full_extent,
                                        heightmap = elev_matrix,
                                        color = "black",
-                                       linewidth = 2)
+                                       linewidth = 1)
 
 shadow_lamb <- lamb_shade(elev_matrix)
 shadow_ray <- ray_shade(elev_matrix,lambert=FALSE)
@@ -48,36 +50,50 @@ elev_matrix |>
   add_water(water_overlay,color="steelblue") |> 
   add_shadow(shadow_ray) |> 
   add_shadow(shadow_lamb) |> 
-  add_shadow(shadow_ambient) |> 
+#  add_shadow(shadow_ambient) |> 
   add_overlay(route_overlay) |> 
-  plot_3d(elev_matrix,zscale = 8)
+  plot_3d(elev_matrix,zscale = 7)
 
-render_path(gwl_route_simple, 
+render_path(gwl_route_detailed, 
+            altitude = 500,
             extent = full_extent, 
             heightmap = elev_matrix, 
             color="red", linewidth = 4, 
-            zscale=8, offset = 50)
+            zscale=7)
 
-camera_coords = convert_path_to_animation_coords(
-  gwl_route_simple,
+
+camera_coords <- 
+  convert_path_to_animation_coords(
+  gwl_route_detailed,
   extent = full_extent, 
-  offset_lookat = 1,
   heightmap = elev_matrix, 
-  zscale = 8,
-  offset = 50, 
+  zscale = 7,
   # not needed for single geometry
   # reorder = TRUE,
   #reorder_merge_tolerance = 0.45, 
   # reorder_duplicate_tolerance = 0.20,
   resample_path_evenly = TRUE,
-  frames = 1080, 
-  follow_camera = TRUE,
-  follow_fixed = TRUE,
-  follow_fixed_offset = c(10,10,10),
+  offset = 10, 
+  offset_lookat = 10,
+  # altitude = 400,
+  follow_camera = FALSE,
+  # follow_distance = 5,
+  follow_fixed = FALSE,
+#  follow_fixed_offset = c(10,10,10),
+  follow_angle = 15,
   damp_motion = TRUE, 
-  damp_magnitude = 0.5
+  damp_magnitude = 0.5,
+   frames = 300,
+
 )
 
-render_highquality(animation_camera_coords = camera_coords[nrow(camera_coords):1,], width=800, height=800,
-                   samples=128, line_radius=0.10, sample_method = "sobol_blue", 
+render_camera()
+# rgl::lines3d(camera_coords[,1:3], color="black", tag = "path3d")
+
+render_highquality(samples=128, line_radius=0.5, sample_method = "sobol_blue")
+
+render_highquality(animation_camera_coords = camera_coords, width=800, height=800,
+                   samples=128, line_radius=0.5, sample_method = "sobol_blue", 
+                   light = TRUE,
                    filename="frames/gwl_")
+
