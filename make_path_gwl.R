@@ -12,6 +12,8 @@ library(tidyverse)
 
 start_point <- c(-74.2548014,41.0248253) # where skyline drive meets i-287
 end_point <- c(-74.29600294,41.24158515) # top of Bellvale
+start_point_3857 <- st_transform(st_sfc(st_point(start_point),crs = 4326),crs = 3857)
+
 full_extent <- ext(-8278678.63106571, -8264262.03289493, 5015662.67345158, 5049556.38996736)
 map_ras <- rast(extent = full_extent, crs="EPSG:3857")
 
@@ -38,24 +40,23 @@ gwl_route_very_simple <- gwl_route_detailed |>
   st_cast("LINESTRING") |> 
   smoothr::smooth(method = "spline")
 
-# change end point to top of mount peter, sort of
-top_peter = st_point(c(-8269874.1,5047842.0))
+# change start and end point of camera path
 route_points <- gwl_route_very_simple |> 
   st_cast("POINT",group_or_split = TRUE)
-route_points[length(route_points)] <- top_peter
+top_peter = st_point(c(-8269874.1,5047842.0))
+camera_start <-  st_point(c(--8265996.05,5016020.91))
+route_points <- bind_rows(as_tibble(start_point_3857),as_tibble(route_points)) |> st_sf()
+route_points <- bind_rows(as_tibble(route_points),as_tibble(st_sfc(top_peter,crs=st_crs(route_points)))) |> st_sf()
+
+
 gwl_route_very_simple <- route_points |> 
   st_cast("POINT") |> 
   st_as_sf(agr = "constant") |> 
   summarise(do_union = FALSE) |> 
   st_cast("LINESTRING")
 
-
 plot(st_geometry(gwl_route_detailed))
 plot(st_geometry(gwl_route_very_simple))
-
-# get water
-# https://hub.arcgis.com/datasets/esri::usa-detailed-water-bodies/explore
-# water_bodies = st_read("data/gwl/water/USA_Detailed_Water_Bodies.shp")
 
 # render historical georeferenced map with elev data
 # specifically usgs topos
@@ -140,7 +141,7 @@ file2_pad <- str_replace(file2,"gwl_","gwl_0")
 file.rename(paste0("frames/",file1),paste0("frames/",file1_pad))
 file.rename(paste0("frames/",file2),paste0("frames/",file2_pad))
 fnames <- paste0("frames/",dir("frames/","*.png"))
-gifski::gifski(fnames,delay = 0.3)
+gifski::gifski(fnames,delay = 0.1)
 
 # external program
 # ffmpeg -framerate 24 -i gwl_%d.png -pix_fmt yuv420p roadtrip.mp4
