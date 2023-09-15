@@ -36,24 +36,32 @@ gwl_route_simple <- osrm::osrmRoute(start_point,end_point,overview = "simplified
   st_transform(crs(map_ras))
 
 gwl_route_very_simple <- gwl_route_detailed |> 
-  st_line_sample(25) |> 
+  st_line_sample(15) |> 
   st_cast("LINESTRING") |> 
-  smoothr::smooth(method = "spline")
+  smoothr::smooth(method = "chaikin")
 
 # change start and end point of camera path
 route_points <- gwl_route_very_simple |> 
   st_cast("POINT",group_or_split = TRUE)
 top_peter = st_point(c(-8269874.1,5047842.0))
-camera_start <-  st_point(c(--8265996.05,5016020.91))
-route_points <- bind_rows(as_tibble(start_point_3857),as_tibble(route_points)) |> st_sf()
+camera_start <-  st_point(c(-8265231.2,5015198.9))
+route_points <- bind_rows(as_tibble(st_sfc(camera_start,crs=st_crs(route_points))),as_tibble(route_points)) |> st_sf()
 route_points <- bind_rows(as_tibble(route_points),as_tibble(st_sfc(top_peter,crs=st_crs(route_points)))) |> st_sf()
-
 
 gwl_route_very_simple <- route_points |> 
   st_cast("POINT") |> 
   st_as_sf(agr = "constant") |> 
   summarise(do_union = FALSE) |> 
   st_cast("LINESTRING")
+
+#manually created from qgis
+new_route <- st_read("data/gwl/route.geojsonl.json") |> 
+  st_transform(crs = 3857) |> 
+  smoothr::smooth(method = "chaikin")
+plot(st_geometry(new_route))
+
+gwl_route_very_simple <- new_route
+
 
 plot(st_geometry(gwl_route_detailed))
 plot(st_geometry(gwl_route_very_simple))
@@ -71,7 +79,7 @@ elev_matrix <- elevation |>
 route_overlay <- generate_line_overlay(gwl_route_detailed,
                                        extent = map_ras,
                                        heightmap = elev_matrix,
-                                       color = "green",
+                                       color = "blue",
                                        linewidth = 2)
 
 camera_path_overlay <- generate_line_overlay(gwl_route_very_simple,
@@ -120,7 +128,7 @@ camera_coords <-
     # follow_rotations = 3,
     # damp_motion = TRUE,
     # damp_magnitude = 1,
-    frames = 300,
+    frames = 600,
   )
 
 
@@ -130,7 +138,7 @@ render_highquality(animation_camera_coords = camera_coords, width=800, height=80
                    ambient_light = TRUE,
                    progress = TRUE,
                    verbose = TRUE,
-                   filename="frames/gwl_")
+                   filename="frames/b_gwl_")
 tictoc::toc()
 
 # make GIF 
