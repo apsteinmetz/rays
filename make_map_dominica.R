@@ -13,9 +13,13 @@ library(png)
 # https://www.google.com/maps/place/Boiling+Lake/@15.3183146,-61.294805,421m
 latlon_mid <- list(lat=15.3183146,long=-61.294805)
 
-lat_width <- 0.015
-lon_width <- 0.015
-major_dim <- 1200
+# lat_width <- 0.015
+# lon_width <- 0.015
+
+lat_width <- 0.02
+lon_width <- 0.02
+
+major_dim <- 4000
 # texture from http://matthewkling.github.io/media/rayshader/
 texture <- create_texture("red", "darkgreen",
                           "khaki", "khaki", "khaki")
@@ -48,7 +52,7 @@ valley_pos <- list(lat=15.312906,long=-61.301114)
 # load elevation data
 # http://charim-geonode.net/layers/geonode:dem1
 # 5 meters/pixel resolution
-elev_file <- file.path("data", "dominica_charm.tif")
+elev_file <- file.path("data", "dominica_geonode_dem1.tif")
 
 # overlay_file <- overlay_file <- "dominica_historical.png"
 overlay_file <- "dominica_sat.png"
@@ -57,10 +61,6 @@ overlay_file2 <- "dominica_street.png"
 # -------------------------------------------------------------
 # Download external data
 
-# get_usgs_elevation_data(bbox, size = image_size$size, 
-#                         file = file.path("data","elev_usgs_dominica.tif"),
-#                         sr_bbox = 4326, sr_image = 4326)
-# 
 # plot 2D# fetch overlay image
 get_arcgis_map_image(bbox, map_type = "World_Imagery", file = 
                       file.path("img",overlay_file),
@@ -89,31 +89,40 @@ zscale = 3
 zoom = 0.5
 
 # calculate rayshader layers
-ambmat <- ambient_shade(elev_matrix, zscale = zscale)
+# ambmat <- ambient_shade(elev_matrix, zscale = zscale)
 # raymat <- ray_shade(elev_matrix,anglebreaks=seq(20,30,1),zscale = zscale, lambert = TRUE)
-raymat <- ray_shade(elev_matrix, sunaltitude = 45,zscale = zscale, lambert = TRUE)
+# raymat <- ray_shade(elev_matrix, sunaltitude = 45,zscale = zscale, lambert = TRUE)
 # watermap <- detect_water(elev_matrix)
 
 
 # show one view
-elev_matrix %>%
-  sphere_shade(texture = "bw", zscale = zscale) %>%
-  # add_water(watermap, color = "imhof4") %>%
+full_map <- elev_matrix %>%
+  height_shade() %>% 
+  add_overlay(sphere_shade(elev_matrix, texture = "desert", 
+                           zscale=4, colorintensity = 5), alphalayer=0.5) %>%
+  add_shadow(lamb_shade(elev_matrix,zscale=6), 0) %>%
+  add_shadow(ambient_shade(elev_matrix), 0) %>%
+  add_shadow(texture_shade(elev_matrix,detail=10/10,contrast=9,brightness = 11), 0.1) %>%
+  
+#  sphere_shade(texture = "bw", zscale = zscale) %>%
+#  add_water(watermap, color = "imhof4") %>%
 #  add_shadow(raymat, max_darken = 0.9) %>%
 #  add_shadow(ambmat, max_darken = 0.5) %>%
-  add_overlay(overlay_img, alphalayer = 0.7) %>%
-#  add_overlay(overlay_img2, alphalayer = 0.7) %>%
-  plot_map()
+  add_overlay(overlay_img, alphalayer = 0.7)
+#  add_overlay(overlay_img2, alphalayer = 0.7)
+
+  full_map |> plot_map()
 
 
 rgl::clear3d()
-elev_matrix %>% 
-  sphere_shade(texture = "bw") %>% 
-  # add_water(watermap, color = "imhof4") %>%
-  # add_overlay(overlay_img, alphalayer = 0.9) %>%
-  add_overlay(overlay_img, alphalayer = 0.8) %>%
-  add_shadow(raymat, max_darken = 0.4) %>%
-  add_shadow(ambmat, max_darken = 0.6) %>%
+# elev_matrix %>% 
+#   sphere_shade(texture = "bw") %>% 
+#   add_water(watermap, color = "imhof4") %>%
+#   add_overlay(overlay_img, alphalayer = 0.9) %>%
+#   add_overlay(overlay_img, alphalayer = 0.8) %>%
+#   add_shadow(raymat, max_darken = 0.4) %>%
+#   add_shadow(ambmat, max_darken = 0.6) %>%
+full_map |> 
   plot_3d(elev_matrix, zscale = zscale, windowsize = c(1200, 1000),
           water = FALSE, soliddepth = "auto", wateralpha = 0,
           theta = 0, phi = 30, zoom = zoom, fov = 60)
